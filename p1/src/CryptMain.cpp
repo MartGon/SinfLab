@@ -1,6 +1,5 @@
 #include "CryptMain.h"
 #include <fstream>
-#include <iostream>
 #include <array>
 #include <stdio.h>
 
@@ -277,7 +276,6 @@ char getMostFrequentValueFromVector(std::vector<char> vector)
     }
 
     // Get max key which its value is the biggest on the map
-    decltype(val_count)::value_type;
     auto max = std::max_element(val_count.begin(), val_count.end(),
         [](const decltype(val_count)::value_type p1, const decltype(val_count)::value_type p2) {
         return p1.second < p2.second;
