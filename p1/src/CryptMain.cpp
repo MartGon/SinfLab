@@ -3,51 +3,65 @@
 #include <array>
 #include <stdio.h>
 
-std::map<int, std::vector<char>> global_count;
-
 int main(int argc, char** args)
 {
+	// First, we get the hex strings from the text file
     std::vector<std::string> hex_msgs = getMsgsFromTextFile("file.txt");
-    std::vector<std::string> char_msgs = parseHexMsgsToCharMsgs(hex_msgs);
-    std::map<int, std::vector<char>> key_possibilites;
-    std::string final_key = fill_string(' ', 1024);
-    std::string final_key2;
 
-    std::string a;
-    std::string b;
+	// Then we parse those hex strings to char strings. This will allows us to use them more easily
+    std::vector<std::string> char_msgs = parseHexMsgsToCharMsgs(hex_msgs);
+
+	// Now we define the map that will hold the list of all the possible values of a given index of the key
+    std::map<int, std::vector<char>> key_possibilites;
+
+	// We'll store the final key here
+	std::string final_key;
+
+	// Variables to use during the loop
+    std::string c1;
+    std::string c2;
     std::string total;
     std::vector<int> index;
 
-    // Getting the key
-
+    // Loop for getting the possible values of the key for each index/position
+	// The process of acquiring the key is made by following the next propierties/observations
+	// 1- The most common charactes are going to be letters ([A-z]) and the character space ' '
+	// 2- If we xor two ciphertexts together c1, c2 we get the sum of its plain texts; c1 + c2 = m1 + m2. Removing the key from the equation
+	// 3- Because of the propierties of the ASCII table, it is impossible to form a letter ([A-z]) by xoring two letters ([A-z]). That's because the 64 bit needs to be always one.
+	// 4- If we xor a letter with a space character, we get its lower or upper case counterpart
+	// 4- Then, if we xor two ciphertexts and find a letter in the result string, we know that in one of the two plaintexts (m1 or m2) there is a character space in that position.
+	// 5- With that, we reduce the number of possibilites of the value of that index of the key to two, p1 = space xor c1[index] or p2 = space xor c2[index]
+	// 6- By repeating this process with each pair of ciphertext we can form a key aproximation by getting the most common value for each index of the key.
+	// 7- Because of propierty 1 there we'll be some mistakes, but the decrypted text should be readable.
     for (int i = 0; i < char_msgs.size(); i++)
     {
-        a = char_msgs[i];
+        c1 = char_msgs[i];
         for (int j = 0; j < char_msgs.size(); j++)
         {
-            b = char_msgs[j];
+            c2 = char_msgs[j];
 
-            total = replaceNonLetters(xor_str(a, b), ' ');
+            total = replaceNonLetters(xor_str(c1, c2), ' ');
             index = getIndexOfNonChr(total, ' ');
 
-            getPossibleKeyValues(index, total, a, b, key_possibilites, final_key);
+            getPossibleKeyValues(index, total, c1, c2, key_possibilites);
         }
     }
 
-    for (auto it = global_count.begin(); it != global_count.end(); it++)
+	// Form the final key by getting the most common value for each index of the key
+    for (auto it = key_possibilites.begin(); it != key_possibilites.end(); it++)
     {
         int key = it->first;
-        final_key2.push_back(getMostFrequentValueFromVector(it->second));
+        final_key.push_back(getMostFrequentValueFromVector(it->second));
     }
 
     std::cout << "\n\n" << final_key << "\n\n";
 
-    // Printing plain text messages
+    // Decrypting and printing plain text messages
 
     std::string plain_text;
     for (int i = 0; i < char_msgs.size(); i++)
     {
-        plain_text = xor_str(final_key2, char_msgs[i]);
+        plain_text = xor_str(final_key, char_msgs[i]);
 
         std::cout << "Message: " << (i + 1) << "\n" << plain_text << "\n\n";
     }
@@ -235,7 +249,7 @@ std::string filter_string(const std::string& string, char max, char min, char ch
     return str;
 }
 
-void getPossibleKeyValues(std::vector<int> letter_index, std::string m_sum, std::string c1, std::string c2, std::map<int, std::vector<char>>& key_possiblities, std::string& final_key)
+void getPossibleKeyValues(std::vector<int> letter_index, std::string m_sum, std::string c1, std::string c2, std::map<int, std::vector<char>>& key_possiblities)
 {
     std::map<int, std::vector<char>>& result = key_possiblities;
 
@@ -246,46 +260,19 @@ void getPossibleKeyValues(std::vector<int> letter_index, std::string m_sum, std:
     {
         int key_index = letter_index.at(i);
 
-        //char m_char = m_sum.at(key_index);
         char m_char = ' ';
         p1 = c1.at(key_index) ^ m_char;
         p2 = c2.at(key_index) ^ m_char;
 
+        // Most frequent value measures
         if (result.find(key_index) == result.end())
         {
             result.insert_or_assign(key_index, std::vector<char>());
+        }
+        else
+        {
             result.at(key_index).push_back(p1);
             result.at(key_index).push_back(p2);
-        }
-        else
-        {
-            // If it is not set yet
-            if (final_key.at(key_index) == ' ')
-            {
-                if (p1 == result.at(key_index).at(0) && p2 != result.at(key_index).at(1))
-                {
-                    final_key.at(key_index) = p1;
-                }
-                else if (p1 != result.at(key_index).at(0) && p2 == result.at(key_index).at(1))
-                {
-                    final_key.at(key_index) = p2;
-                }
-                else
-                {
-                    std::cout << "";
-                }
-            }
-        }
-
-        // Most frequent value measures
-        if (global_count.find(key_index) == global_count.end())
-        {
-            global_count.insert_or_assign(key_index, std::vector<char>());
-        }
-        else
-        {
-            global_count.at(key_index).push_back(p1);
-            global_count.at(key_index).push_back(p2);
         }
     }
 

@@ -42,4 +42,4 @@ std::string replaceNonLetters(std::string str, char chr);
 
 std::string filter_string(const std::string& string, char max, char min = -1, char chr = ' ');
 
-void getPossibleKeyValues(std::vector<int> letter_index, std::string m_sum, std::string c1, std::string c2, std::map<int, std::vector<char>>& key_possiblities, std::string& final_key);
+void getPossibleKeyValues(std::vector<int> letter_index, std::string m_sum, std::string c1, std::string c2, std::map<int, std::vector<char>>& key_possiblities);
