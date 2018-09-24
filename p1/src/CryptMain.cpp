@@ -57,6 +57,113 @@ int main(int argc, char** args)
     return 0;
 }
 
+// string operations
+
+std::string fill_string(char chr, int size)
+{
+	std::string str;
+
+	for (int i = 0; i < size; i++)
+		str.push_back(chr);
+
+	return str;
+}
+
+std::string get_shorter(std::string a, std::string b)
+{
+	if (a.size() < b.size())
+		return a;
+	else
+		return b;
+}
+
+std::vector<int> getIndexOfNonChr(std::string str, char chr)
+{
+	std::vector<int> index;
+
+	for (int i = 0; i < str.size(); i++)
+	{
+		if (str.at(i) != chr)
+			index.push_back(i);
+	}
+
+	return index;
+}
+
+std::string hexStrToCharStr(std::string str)
+{
+	int str_size = str.size();
+	std::string string;
+
+	if (str_size % 2)
+		return string;
+
+	for (int i = 0; i < str_size; i += 2)
+	{
+		int8_t h1 = str.at(i);
+		int8_t h2 = str.at(i + 1);
+		char d1 = charToInt8(h1) * 16;
+		char d2 = charToInt8(h2);
+		char r = d1 + d2;
+
+		string.push_back(r);
+	}
+
+	return string;
+}
+
+std::string xor_str(std::string a, std::string b)
+{
+	std::string str;
+	int iterations = get_shorter(a, b).size();
+
+	for (int i = 0; i < iterations; i++)
+	{
+		char sum = a.at(i) ^ b.at(i);
+		str.push_back(sum);
+	}
+
+	return str;
+}
+
+// char operations
+
+int8_t charToInt8(char c)
+{
+	if (c > 96 && c < 103)
+		return (int8_t)(c - 87);
+	else
+		return (int8_t)(c - 48);
+}
+
+// vector
+
+char getMostFrequentValueFromVector(std::vector<char> vector)
+{
+	std::map<char, int> val_count;
+
+	for (int i = 0; i < vector.size(); i++)
+	{
+		char index = vector.at(i);
+		if (val_count.find(index) == val_count.end())
+		{
+			val_count.insert_or_assign(index, 1);
+		}
+		else
+			val_count.at(index)++;
+	}
+
+	// Get max key which its value is the biggest on the map
+	auto max = std::max_element(val_count.begin(), val_count.end(),
+		[](const decltype(val_count)::value_type p1, const decltype(val_count)::value_type p2) {
+		return p1.second < p2.second;
+	});
+
+	return max->first;
+}
+
+// Program dependant operations
+
 std::vector<std::string> getMsgsFromTextFile(std::string filename)
 {
     std::ifstream infile(filename);
@@ -81,36 +188,6 @@ std::vector<std::string> getMsgsFromTextFile(std::string filename)
     return msgs;
 }
 
-int8_t charToInt8(char c)
-{
-    if (c > 96 && c < 103)
-        return (int8_t)(c - 87);
-    else
-        return (int8_t)(c - 48);
-}
-
-std::string hexStrToCharStr(std::string str)
-{
-    int str_size = str.size();
-    std::string string;
-
-    if (str_size % 2)
-        return string;
-
-    for (int i = 0; i < str_size; i += 2)
-    {
-        int8_t h1 = str.at(i);
-        int8_t h2 = str.at(i + 1);
-        char d1 = charToInt8(h1) * 16;
-        char d2 = charToInt8(h2);
-        char r = d1 + d2;
-        
-        string.push_back(r);
-    }
-
-    return string;
-}
-
 std::vector<std::string> parseHexMsgsToCharMsgs(std::vector<std::string> hex_msgs)
 {
     std::vector<std::string> char_msgs;
@@ -127,36 +204,15 @@ std::vector<std::string> parseHexMsgsToCharMsgs(std::vector<std::string> hex_msg
     return char_msgs;
 }
 
-std::string xor_str(std::string a, std::string b)
+std::string replaceNonLetters(std::string str, char chr)
 {
-    std::string str;
-    int iterations = get_shorter(a, b).size();
+	std::string total = str;
 
-    for (int i = 0; i < iterations; i++)
-    {
-        char sum = a.at(i) ^ b.at(i);
-        str.push_back(sum);
-    }
+	total = filter_string(total, 65, -1, chr);
+	total = filter_string(total, 97, 91, chr);
+	total = filter_string(total, 127, 122, chr);
 
-    return str;
-}
-
-std::string get_shorter(std::string a, std::string b)
-{
-    if (a.size() < b.size())
-        return a;
-    else
-        return b;
-}
-
-std::string fill_string(char chr, int size)
-{
-    std::string str;
-
-    for (int i = 0; i < size; i++)
-        str.push_back(chr);
-
-    return str;
+	return total;
 }
 
 std::string filter_string(const std::string& string, char max, char min, char chr)
@@ -177,30 +233,6 @@ std::string filter_string(const std::string& string, char max, char min, char ch
     }
 
     return str;
-}
-
-std::string replaceNonLetters(std::string str, char chr)
-{
-    std::string total = str;
-
-    total = filter_string(total, 65, -1, chr);
-    total = filter_string(total, 97, 91, chr);
-    total = filter_string(total, 127, 122, chr);
-
-    return total;
-}
-
-std::vector<int> getIndexOfNonChr(std::string str, char chr)
-{
-    std::vector<int> index;
-
-    for (int i = 0; i < str.size(); i++)
-    {
-        if (str.at(i) != chr)
-            index.push_back(i);
-    }
-
-    return index;
 }
 
 void getPossibleKeyValues(std::vector<int> letter_index, std::string m_sum, std::string c1, std::string c2, std::map<int, std::vector<char>>& key_possiblities, std::string& final_key)
@@ -258,28 +290,4 @@ void getPossibleKeyValues(std::vector<int> letter_index, std::string m_sum, std:
     }
 
     return;
-}
-
-char getMostFrequentValueFromVector(std::vector<char> vector)
-{
-    std::map<char, int> val_count;
-
-    for (int i = 0; i < vector.size(); i++)
-    {
-        char index = vector.at(i);
-        if (val_count.find(index) == val_count.end())
-        {
-            val_count.insert_or_assign(index, 1);
-        }
-        else
-            val_count.at(index)++;
-    }
-
-    // Get max key which its value is the biggest on the map
-    auto max = std::max_element(val_count.begin(), val_count.end(),
-        [](const decltype(val_count)::value_type p1, const decltype(val_count)::value_type p2) {
-        return p1.second < p2.second;
-    });
-    
-    return max->first;
 }
