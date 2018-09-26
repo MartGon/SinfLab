@@ -10,17 +10,21 @@ using bit = bool;
 
 // Bit string operations
 
+long bitstringToInteger(bitstring bitstr);
+
 bitstring generateRandomBitString(int32_t length, int32_t seed = 0);
 
 bit getRandomBit();
 
-long bitstringToInteger(bitstring bitstr);
+bitstring xor_bitstring(bitstring a, bitstring b);
 
 // Debug
 
 void log(std::string str);
 
 void printResultMessage(bool result);
+
+void printVerificationMessage(bool result);
 
 // Utilities
 
