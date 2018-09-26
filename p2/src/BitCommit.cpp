@@ -19,7 +19,7 @@
 // Global variables
 
 // Random bitstring sizes
-const int32_t R_SIZE = 32;
+const int32_t R_SIZE = 16;
 const int32_t S_SIZE = 32;
 
 // Pseudo Random Generator
@@ -56,6 +56,10 @@ int main(int argc, char** args)
 		// 4 - Bob calculates c, by using s, r and b0. Then he sends it to Alice.
 		log("4 - Bob calculates commitment c\n");
 		bob.commitment = bob.calculateCommitment();
+
+		// Uncomment the following line to provoke a failed verification
+		// bob.commitment.at(0) = !bob.commitment.at(0);
+		
 		alice.commitment = bob.commitment;
 		log("\n");
 
@@ -76,13 +80,18 @@ int main(int argc, char** args)
 		printVerificationMessage(result);
 		log("\n\n");
 		
-		// 8 - Alice checks if she has won the bet
-		bool won = alice.b0 == alice.b1;
-		printResultMessage(won);
-
-		std::cout << "\n\nPress ENTER to play again, press Ctrl-c to exit the program";
+		// Only check winner in case commitment verification was correct
+		if (result)
+		{
+			// 8 - Alice checks if she has won the bet
+			bool won = alice.b0 == alice.b1;
+			printResultMessage(won);
+		}
+		else
+			log("Winner check was aborted due to a failed verification");
 
 		// Wait for input before exiting the program
+		std::cout << "\n\nPress ENTER to play again, press Ctrl-c to exit the program";
 		getchar();
 
 		std::cout << "\n\n\n";
