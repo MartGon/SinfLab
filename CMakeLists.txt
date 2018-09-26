@@ -15,3 +15,4 @@ project(SinfLab)
 
 # Add src directory
 add_subdirectory(p1)
+add_subdirectory(p2)
