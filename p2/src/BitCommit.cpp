@@ -63,9 +63,6 @@ int main(int argc, char** args)
 		log("4 - Bob calculates commitment c\n");
 		bob.commitment = bob.calculateCommitment();
 		log(bitstringToString(bob.commitment) + "\n\n");
-
-		// Uncomment the following line to provoke a failed verification
-		// bob.commitment.at(0) = !bob.commitment.at(0);
 		
 		alice.commitment = bob.commitment;
 
@@ -78,6 +75,9 @@ int main(int argc, char** args)
 		log("6 - Bob sends b0 and s to Alice\n\n");
 		alice.b0 = bob.b0;
 		alice.s = bob.s;
+
+		// Uncomment the following line to provoke a failed verification
+		// alice.b0 = !bob.b0;
 
 		// 7- Alice verifies the commitment sent by Bob by calculating c with the values she recieved during the protocol
 		log("7 - Alice verifies the commitment sent by Bob by calculating c with the values she recieved during the protocol\n\n");
