@@ -10,8 +10,6 @@ using bit = bool;
 
 // Bit string operations
 
-long bitstringToInteger(bitstring bitstr);
-
 bitstring generateRandomBitString(int32_t length, int32_t seed = 0);
 
 bit getRandomBit();
@@ -29,6 +27,10 @@ void printVerificationMessage(bool result);
 // Utilities
 
 std::string bitToStr(bit bit);
+
+long bitstringToInteger(bitstring bitstr);
+
+std::string bitstringToString(bitstring bitstr);
 
 // Program dependant
 

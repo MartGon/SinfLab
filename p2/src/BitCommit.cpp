@@ -19,12 +19,15 @@
 // Global variables
 
 // Random bitstring sizes
-const int32_t R_SIZE = 16;
-const int32_t S_SIZE = 32;
+const int32_t R_SIZE = 48;
+const int32_t S_SIZE = 16;
 
-// Pseudo Random Generator
+// Seed generator
+// On Windows, it calls CryptGenRandom
+// On Unix based, it calls /dev/random
 std::random_device rd;
-std::mt19937 dre(rd());
+// Pseudo Random Generator
+std::mt19937 dre;
 
 // Debug Mode
 bool debug = true;
@@ -32,6 +35,9 @@ bool debug = true;
 // Main
 int main(int argc, char** args)
 {
+	// Initializing random number generator with system's entropy
+	dre = std::mt19937(rd());
+
 	while (true)
 	{
 		// Create parties
@@ -42,7 +48,7 @@ int main(int argc, char** args)
 		log("1 - Alice generates r\n");
 		alice.r = alice.generate_r();
 		bob.r = alice.r;
-		log("\n");
+		log(bitstringToString(alice.r) + "\n\n");
 
 		// 2 - Bob generates b0 (He flips a coin)
 		bob.b0 = bob.flipCoin();
@@ -51,17 +57,17 @@ int main(int argc, char** args)
 		// 3 - Bob generates a random bitstring s
 		log("3 - Bob generates s\n");
 		bob.s = bob.generate_s();
-		log("\n");
+		log(bitstringToString(bob.s) + "\n\n");
 
 		// 4 - Bob calculates c, by using s, r and b0. Then he sends it to Alice.
 		log("4 - Bob calculates commitment c\n");
 		bob.commitment = bob.calculateCommitment();
+		log(bitstringToString(bob.commitment) + "\n\n");
 
 		// Uncomment the following line to provoke a failed verification
 		// bob.commitment.at(0) = !bob.commitment.at(0);
 		
 		alice.commitment = bob.commitment;
-		log("\n");
 
 		// 5- Alice generates b1 (She bets) and sends that value to Bob
 		alice.b1 = alice.bet();
@@ -76,7 +82,6 @@ int main(int argc, char** args)
 		// 7- Alice verifies the commitment sent by Bob by calculating c with the values she recieved during the protocol
 		log("7 - Alice verifies the commitment sent by Bob by calculating c with the values she recieved during the protocol\n\n");
 		bool result = alice.verify();
-		log("\n");
 		printVerificationMessage(result);
 		log("\n\n");
 		
@@ -100,19 +105,6 @@ int main(int argc, char** args)
 
 // Bit string operations
 
-long bitstringToInteger(bitstring bitstr)
-{
-	long number = 0;
-
-	for (int i = 0; i < bitstr.size(); i++)
-	{
-		// Left shifts the stored bit i times and the it's added to the number
-		number += (bitstr.at(i) << i);
-	}
-
-	return number;
-}
-
 bitstring generateRandomBitString(int32_t length, int32_t seed)
 {
 	bitstring bitstr;
@@ -125,10 +117,7 @@ bitstring generateRandomBitString(int32_t length, int32_t seed)
 	{
 		bool bit = getRandomBit();
 		bitstr.push_back(bit);
-
-		log(bitToStr(bit));
 	}
-	log("\n");
 
 	return bitstr;
 }
@@ -143,6 +132,11 @@ bitstring xor_bitstring(bitstring c, bitstring r)
 {
 	bitstring total;
 
+	if (c.size() != r.size())
+	{
+		log("Warning: c and r are not the same length\n");
+		return total;
+	}
 	for (int i = 0; i < c.size(); i++)
 	{
 		if (i < r.size())
@@ -150,9 +144,6 @@ bitstring xor_bitstring(bitstring c, bitstring r)
 			bit bit = c.at(i) ^ r.at(i);
 			total.push_back(bit);
 		}
-		else
-			// Xor with zeros once the random string is over
-			total.push_back(c.at(i));
 	}
 
 	return total;
@@ -189,6 +180,32 @@ std::string bitToStr(bit bit)
 	return bit ? std::string("1") : std::string("0");
 }
 
+long bitstringToInteger(bitstring bitstr)
+{
+	long number = 0;
+
+	for (int i = 0; i < bitstr.size(); i++)
+	{
+		// Left shifts the stored bit i times and the it's added to the number
+		number += (bitstr.at(i) << i);
+	}
+
+	return number;
+}
+
+std::string bitstringToString(bitstring bitstr)
+{
+	std::string str;
+
+	for (int i = 0; i < bitstr.size(); i++)
+	{
+		// Left shifts the stored bit i times and the it's added to the number
+		str += bitToStr(bitstr.at(i));
+	}
+
+	return  str;
+}
+
 // Program dependant
 
 // Participant method definitions
@@ -204,7 +221,7 @@ bitstring Participant::calculateCommitment(bitstring s, bitstring r, bit b0)
 
 	bitstring commitment;
 
-	commitment = generateRandomBitString(s.size() * 3, bitstringToInteger(s));
+	commitment = generateRandomBitString(R_SIZE, bitstringToInteger(s));
 
 	if (b0)
 		commitment = xor_bitstring(commitment, r);
