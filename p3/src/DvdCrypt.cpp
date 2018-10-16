@@ -111,7 +111,7 @@ void initRandomGenerator()
 }
 
 // Key generation
-unsigned char * generateRandomKey(int32_t size)
+unsigned char* generateRandomKey(int32_t size)
 {
 	unsigned char* buffer = new unsigned char[size];
 	int rc = RAND_bytes(buffer, size);

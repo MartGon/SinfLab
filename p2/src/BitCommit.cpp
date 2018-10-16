@@ -18,16 +18,13 @@
 
 // Global variables
 
+// Seed generator
+// Pseudo Random Generator
+std::mt19937 dre;
+
 // Random bitstring sizes
 const int32_t R_SIZE = 48;
 const int32_t S_SIZE = 16;
-
-// Seed generator
-// On Windows, it calls CryptGenRandom
-// On Unix based, it calls /dev/random
-std::random_device rd;
-// Pseudo Random Generator
-std::mt19937 dre;
 
 // Debug Mode
 bool debug = true;
@@ -35,8 +32,8 @@ bool debug = true;
 // Main
 int main(int argc, char** args)
 {
-	// Initializing random number generator with system's entropy
-	dre = std::mt19937(rd());
+	// Initializing random generator with hardware's entropy
+	initRandomGenerator();
 
 	while (true)
 	{
@@ -103,19 +100,61 @@ int main(int argc, char** args)
 	}
 }
 
-// Bit string operations
+// Random
 
+void initRandomGenerator()
+{
+	// Variables
+	unsigned long err = 0;
+	int rc = 0;
+
+	// Load engines
+	ENGINE_load_builtin_engines();
+
+	// Get the random generator engine
+	ENGINE* eng = ENGINE_by_id("rdrand");
+
+	if (!eng)
+		log("Error while loading the random generator engine \n");
+
+	// Initializing this engine
+	rc = ENGINE_init(eng);
+	err = ERR_get_error();
+
+	if (!rc)
+		std::cout << "ENGINE_init failed " + std::to_string(err) + "\n";
+
+	// Setting default method rand
+	rc = ENGINE_set_default(eng, ENGINE_METHOD_RAND);
+	err = ERR_get_error();
+
+	if (!rc)
+		std::cout << "ENGINE_set_default failed " + std::to_string(err) + "\n";
+
+	return;
+}
+
+// Bit string operations
 bitstring generateRandomBitString(int32_t length, int32_t seed)
 {
 	bitstring bitstr;
+	bool reseed = seed != 0;
 
 	// If seed is not zero, we set the value
-	if (seed)
+	if (reseed)
 		dre.seed(seed);
 
 	for (int32_t i = 0; i < length; i++)
 	{
-		bool bit = getRandomBit();
+		bool bit = false;
+
+		// If the random engine was seeded, the operation needs to be deterministic
+		if (reseed)
+			bit = getRandomBit();
+		// Secure random bit otherwise
+		else
+			bit = getSecureRandomBit();
+
 		bitstr.push_back(bit);
 	}
 
@@ -126,6 +165,23 @@ bit getRandomBit()
 {
 	std::bernoulli_distribution bd;
 	return bd(dre);
+}
+
+bit getSecureRandomBit()
+{
+	// OpenSSL hardware random generation
+	// Generate 8 bit number
+	unsigned char* buffer = new unsigned char[1];
+	int rc = RAND_pseudo_bytes(buffer, 1);
+
+	if (rc != 1)
+		log("Error while generating a random key");
+
+	char number = buffer[0];
+
+	// We return whether the number is odd or not
+	// The same process as returning just the first bit of the given number
+	return number & 1;
 }
 
 bitstring xor_bitstring(bitstring c, bitstring r)
