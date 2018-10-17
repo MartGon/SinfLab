@@ -1,0 +1,17 @@
+REQUIREMENTS
+
+In order to compile the program you'll need OpenSSL libraries which can be obtained by one of the following ways:
+
+LINUX Deabiab/Ubuntu
+
+sudo apt install libssl-dev
+
+MacOS
+
+brew install openssl
+
+COMPILING
+
+You can compile the program by simply running
+
+g++ bitcommit.cpp -o bitcommit -lcrypto

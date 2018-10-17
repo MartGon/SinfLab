@@ -28,8 +28,10 @@ int32_t aes_encrypt_func(unsigned char* plaintext, int32_t plaintext_len, const 
 int32_t aes_decrypt_func(unsigned char *ciphertext, int ciphertext_len, unsigned char *key, unsigned char *iv, unsigned char *plaintext);
 
 // Key generation
+
 void initRandomGenerator();
 
+// size - Key's size in bytes
 unsigned char* generateRandomKey(int32_t size);
 
 // Debug functions
@@ -42,24 +44,36 @@ class Node
 {
 public:
 	// Constructor
-	Node(Node* parent, Node* sibling, Key key);
+	Node();
+	Node(Key key);
 
 	// Node Utility variables
-	int32_t id = 0;
-	Node* parent = nullptr;
-	Node* sibling = nullptr;
-	std::pair<Node*, Node*> children;
+	int32_t id = 1;
 
 	// Key
 	Key key = nullptr;
 
+	// Revoked
+	bool revoked = false;
+
+	// Methods
+	bool isDevice(Tree tree);
 private:
 	// Id measures
 	static int16_t last_id;
 	int32_t get_id();
+
+	// Methods
+	Node* getParent(Tree tree);
+	Node* getSibling(Tree tree);
 };
 
 // Tree functions
-Tree generateBinaryTree(int32_t levels);
 
 int32_t calculateTreeSize(int32_t levels);
+
+Tree generateBinaryTree(int32_t levels);
+
+std::vector<Node*> getValidKeyNodes(Tree tree);
+
+Tree updateTree(Tree tree, std::vector<int> revoked_ids);

@@ -9,9 +9,23 @@ int main(void)
 	initRandomGenerator();
 
 	// Debug ciphering functions
-	test_ciphering();
+	//test_ciphering();
 
-	generateBinaryTree(4);
+	// Get revoked devices' ids
+	std::vector<int> revoked_ids = {1, 8, 9};
+
+	// Generate the binary tree of 4 levels
+	Tree tree = generateBinaryTree(4);
+
+	// Updated the tree with the revoked keys
+	tree = updateTree(tree, revoked_ids);
+
+	// Get S
+	std::vector<Node*> s = getValidKeyNodes(tree);
+
+	// Get the cover of S
+
+	// Ecnrypt the key with the keys from the covers of S
 
 	getchar();
 
@@ -128,7 +142,7 @@ unsigned char* generateRandomKey(int32_t size)
 // Debug
 void test_ciphering()
 {
-	unsigned char* key = (unsigned char*)"*F)J@NcRfUjXn2r";
+	unsigned char* key = nullptr;
 	key = generateRandomKey(16);
 	unsigned char* iv = (unsigned char*)"McQfTjWnZr4u7x!";
 	unsigned char* message = (unsigned char*)"HolaHolaHola123";
@@ -161,7 +175,34 @@ Tree generateBinaryTree(int32_t levels)
 	int32_t size = calculateTreeSize(levels);
 	log("Tree size is " + std::to_string(size) + "\n");
 
-	return Tree();
+	// Create Tree
+	Tree tree;
+	// Measure to keep indexing correctly
+	tree.push_back(nullptr);
+
+	// Create nodes
+	for (int i = 0; i < size; i++)
+	{
+		Key key = generateRandomKey(16);
+		Node* node = new Node(key);
+		tree.push_back(node);
+	}
+
+	return tree;
+}
+
+std::vector<Node*> getValidKeyNodes(Tree tree)
+{
+	std::vector<Node*> nodes;
+
+	for (int i = 0; i < tree.size(); i++)
+	{
+		if (Node* node = tree.at(i))
+			if (!node->revoked)
+				nodes.push_back(node);
+	}
+
+	return nodes;
 }
 
 int32_t calculateTreeSize(int32_t levels)
@@ -169,18 +210,74 @@ int32_t calculateTreeSize(int32_t levels)
 	return pow(2, levels) - 1;
 }
 
-// Classes
-int16_t Node::last_id = 0;
+Tree updateTree(Tree tree, std::vector<int> revoked_ids)
+{
+	for (int i = 0; i < revoked_ids.size(); i++)
+	{
+		int index = revoked_ids.at(i);
 
-Node::Node(Node* parent, Node* sibling, Key key)
+		if (index < 0 || index > tree.size())
+			continue;
+
+		if (Node* node = tree.at(index))
+			if (node->isDevice(tree))
+				node->revoked = true;
+	}
+
+	return tree;
+}
+
+// Classes
+int16_t Node::last_id = 1;
+
+Node::Node()
 {
 	id = get_id();
-	this->parent = parent;
-	this->sibling = sibling;
+}
+
+Node::Node(Key key) : Node::Node()
+{
 	this->key = key;
+}
+
+bool Node::isDevice(Tree tree)
+{
+	int32_t size = tree.size();
+
+	// If it is from the last level
+	if (id < size && id >= (size / 2))
+		return true;
+
+	return false;
 }
 
 int32_t Node::get_id()
 {
 	return last_id++;
 }
+
+Node* Node::getParent(Tree tree)
+{
+	if (id == 1)
+		return nullptr;
+
+	int parent_index = (id / 2);
+
+	return tree.at(parent_index);
+}
+
+Node* Node::getSibling(Tree tree)
+{
+	if (id == 1)
+		return nullptr;
+
+	int sibling_index = 0;
+
+	if (id % 2)
+		sibling_index = (id - 1);
+	else
+		sibling_index = (id + 1);
+
+	return tree.at(sibling_index);
+}
+
