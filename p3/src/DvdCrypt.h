@@ -14,6 +14,7 @@
 #include <vector>
 #include <cmath>
 #include <string>
+#include <fstream>
 
 // Forward Declaration
 class Node;
@@ -58,14 +59,16 @@ public:
 
 	// Methods
 	bool isDevice(Tree tree);
+	void revoke(Tree tree);
+
+	// Tree handling
+	Node* getParent(Tree tree);
+	Node* getSibling(Tree tree);
+	std::pair<Node*, Node*> getChildren(Tree tree);
 private:
 	// Id measures
 	static int16_t last_id;
 	int32_t get_id();
-
-	// Methods
-	Node* getParent(Tree tree);
-	Node* getSibling(Tree tree);
 };
 
 // Tree functions
@@ -74,6 +77,29 @@ int32_t calculateTreeSize(int32_t levels);
 
 Tree generateBinaryTree(int32_t levels);
 
-std::vector<Node*> getValidKeyNodes(Tree tree);
+std::vector<Node*> getRevokedNodes(Tree tree);
 
-Tree updateTree(Tree tree, std::vector<int> revoked_ids);
+std::vector<Node*>getValidKeyNodes(Tree tree, std::vector<Node*> revoked_nodes);
+
+Tree updateTree(Tree tree, std::vector<int> revoked_devices);
+
+// Key
+
+struct KeyStruct
+{
+	int32_t key_id;
+	Key ciphered_key;
+};
+
+// Header
+struct Header
+{
+public:
+	int32_t keys_size;
+	int32_t key_array_length;
+	std::vector<KeyStruct> ciphered_keys;
+};
+
+// Header Functions
+
+Header* generateHeader(std::vector<Node*> valid_nodes, Key key);
