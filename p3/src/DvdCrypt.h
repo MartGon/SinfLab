@@ -18,22 +18,24 @@
 
 // Forward Declaration
 class Node;
+struct Header;
+struct KeyStruct;
 
 // Utilities
 using Tree = std::vector<Node*>;
-using Key = unsigned char*;
+using Key = byte*;
 
 // Cipher fuctions
-int32_t aes_encrypt_func(unsigned char* plaintext, int32_t plaintext_len, const unsigned char* key, const unsigned char* iv, unsigned char* ciphertext);
+int32_t aes_encrypt_func(byte* plaintext, int32_t plaintext_len, const byte* key, const byte* iv, byte* ciphertext);
 
-int32_t aes_decrypt_func(unsigned char *ciphertext, int ciphertext_len, unsigned char *key, unsigned char *iv, unsigned char *plaintext);
+int32_t aes_decrypt_func(byte *ciphertext, int ciphertext_len, byte *key, byte *iv, byte *plaintext);
 
 // Key generation
 
 void initRandomGenerator();
 
 // size - Key's size in bytes
-unsigned char* generateRandomKey(int32_t size);
+byte* generateRandomKey(int32_t size);
 
 // Debug functions
 void test_ciphering();
@@ -58,6 +60,7 @@ public:
 	bool revoked = false;
 
 	// Methods
+	KeyStruct getDecryptKeyByHeader(Tree tree, Header header);
 	bool isDevice(Tree tree);
 	void revoke(Tree tree);
 
@@ -81,6 +84,8 @@ std::vector<Node*> getRevokedNodes(Tree tree);
 
 std::vector<Node*>getValidKeyNodes(Tree tree, std::vector<Node*> revoked_nodes);
 
+bool isValidIndex(Tree tree, int32_t index);
+
 Tree updateTree(Tree tree, std::vector<int> revoked_devices);
 
 // Key
@@ -88,6 +93,7 @@ Tree updateTree(Tree tree, std::vector<int> revoked_devices);
 struct KeyStruct
 {
 	int32_t key_id;
+	int32_t ciphered_key_size;
 	Key ciphered_key;
 };
 
@@ -97,9 +103,21 @@ struct Header
 public:
 	int32_t keys_size;
 	int32_t key_array_length;
+	int32_t content_length;
+	int32_t ciphered_content_length;
 	std::vector<KeyStruct> ciphered_keys;
 };
 
 // Header Functions
 
 Header* generateHeader(std::vector<Node*> valid_nodes, Key key);
+
+// File I/O Functions
+
+void writeToFile(const char* filename, Header* header, byte* content, int32_t content_length);
+
+int32_t readFromFile(const char* filename, Header& header, byte*& content);
+
+// Vector functions
+
+bool vector_contains(std::vector<int32_t> vector, int32_t value);

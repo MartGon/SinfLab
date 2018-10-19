@@ -11,10 +11,11 @@ int main(void)
 	// Initiliaze random generator to use a hardware source of entropy
 	initRandomGenerator();
 
-	test_ciphering();
+	// Debug
+	// test_ciphering();
 
 	// Get revoked devices' ids
-	std::vector<int> revoked_devices = {1, 8, 10};
+	std::vector<int> revoked_devices = {8};
 
 	// Generate the binary tree of 4 levels
 	Tree tree = generateBinaryTree(4);
@@ -43,18 +44,87 @@ int main(void)
 	int32_t ciphertext_length = 0;
 	ciphertext_length = aes_encrypt_func(content, content_length, key, iv, ciphertext);
 
-		// Debug
+	// Update header
+	header->ciphered_content_length = ciphertext_length;
+	header->content_length = content_length;
+
+	// Debug
+	/*
 	byte* decrypted = new byte[128];
 	aes_decrypt_func(ciphertext, ciphertext_length, key, iv, decrypted);
 	decrypted[content_length] = '\0';
+	*/
 
 	// Write to file
-	std::fstream myfile;
-	myfile = std::fstream("ciphered_content.txt", std::ios::out | std::ios::binary);
-	myfile.write((char*)ciphertext, ciphertext_length);
-	myfile.close();
+	const char* filename = "cipher-content.cry";
+	writeToFile(filename, header, ciphertext, ciphertext_length);
+	std::cout << "Content has been successfully encrypted on " <<  filename << " \n";
 
-	getchar();
+	// DECRYPTION
+
+	// Prompt for decryption
+	Node* decrypting_node;
+	int device = 1;
+
+	while (true)
+	{
+		std::cout << "In order to decrypt, choose a device for decrypting\n";
+		std::cin >> device;
+		std::cin.get();
+		std::cout << "You have chosen device " << std::to_string(device) << " \n";
+
+		if (isValidIndex(tree, device))
+		{
+			Node* node = tree.at(device);
+			if (node->isDevice(tree))
+			{
+				decrypting_node = node;
+				break;
+			}
+			else
+				std::cout << "The node with the given id is not a device\n";
+		}
+		else
+			std::cout << "The node with the given id was not found\n";
+	}
+
+	// Log
+	std::cout << "Trying to decrypt the file with device " << std::to_string(device) << "\n";
+
+	// Read file
+	Header read_header;
+	byte* read_ciphered_content;
+	readFromFile(filename, read_header, read_ciphered_content);
+	
+	// Discover if we can decrypt the content or not
+	KeyStruct keystruct = decrypting_node->getDecryptKeyByHeader(tree, read_header);
+
+	if (!keystruct.key_id)
+	{
+		std::cout << "Device cannot decrypt the content\n";
+		std::cin.get();
+		return -1;
+	}
+
+	// Decrypting process
+	// Decrypting the key
+	byte* key_to_decrypt = tree.at(keystruct.key_id)->key;
+	byte* decrypted_key = new byte[keystruct.ciphered_key_size];
+	byte* encrypted_key = keystruct.ciphered_key;
+	int32_t encrypted_key_length = keystruct.ciphered_key_size;
+	int32_t decrypted_key_size = read_header.keys_size;
+
+	aes_decrypt_func(encrypted_key, encrypted_key_length, key_to_decrypt, iv, decrypted_key);
+	decrypted_key[key_size] = '\0';
+
+	// Decrypting the content
+	byte* decrypted_content = new byte[header->content_length];
+	aes_decrypt_func(read_ciphered_content, header->ciphered_content_length, decrypted_key, iv, decrypted_content);
+	decrypted_content[header->content_length] = '\0';
+
+	std::cout << "The decrypted content is \n\n" << decrypted_content << "\n";
+
+	std::cin.get();
 
 	return 0;
 }
@@ -119,6 +189,7 @@ int32_t aes_decrypt_func(byte * ciphertext, int ciphertext_len, byte * key, byte
 	return plaintext_len;
 }
 
+// Key generation
 void initRandomGenerator()
 {
 	// Variables
@@ -151,7 +222,6 @@ void initRandomGenerator()
 	return;
 }
 
-// Key generation
 byte* generateRandomKey(int32_t size)
 {
 	byte* buffer = new byte[size];
@@ -240,6 +310,10 @@ std::vector<Node*> getValidKeyNodes(Tree tree, std::vector<Node*> revoked_nodes)
 {
 	std::vector<Node*> valid_nodes;
 
+	// If there are no revoked nodes, the root key can be used
+	if (revoked_nodes.empty())
+		valid_nodes.push_back(tree.at(1));
+
 	// Get the first child from the revoked nodes which is not revoked
 	for (int i = 0; i < revoked_nodes.size(); i++)
 	{
@@ -259,13 +333,18 @@ std::vector<Node*> getValidKeyNodes(Tree tree, std::vector<Node*> revoked_nodes)
 	return valid_nodes;
 }
 
+bool isValidIndex(Tree tree, int32_t index)
+{
+	return index > 0 && index < tree.size();
+}
+
 Tree updateTree(Tree tree, std::vector<int> revoked_devices)
 {
 	for (int i = 0; i < revoked_devices.size(); i++)
 	{
 		int index = revoked_devices.at(i);
 
-		if (index < 0 || index > tree.size())
+		if (!isValidIndex(tree, index))
 			continue;
 
 		if (Node* node = tree.at(index))
@@ -294,6 +373,30 @@ Node::Node(Key key) : Node::Node()
 // Methods
 
 // Public
+
+KeyStruct Node::getDecryptKeyByHeader(Tree tree, Header header)
+{
+	// Get the keys which this devis has access to
+	std::vector<int32_t> key_ids;
+	Node* node = this;
+
+	while (node)
+	{
+		key_ids.push_back(node->id);
+		node = node->getParent(tree);
+	}
+
+	// Check whether there's a coincidence
+	int32_t key_id = 0;
+	for (int i = 0; i < header.ciphered_keys.size(); i++)
+	{
+		key_id = header.ciphered_keys.at(i).key_id;
+		if (vector_contains(key_ids, key_id))
+			return header.ciphered_keys.at(i);
+	}
+
+	return KeyStruct();
+}
 
 bool Node::isDevice(Tree tree)
 {
@@ -367,17 +470,20 @@ Header *generateHeader(std::vector<Node*> valid_nodes, Key key)
 {
 	std::vector<KeyStruct> ciphered_keys;
 	Key ciphered_key = new byte[16];
+	int32_t ciphered_key_size = 0;
+
 	for (int i = 0; i < valid_nodes.size(); i++)
 	{
 		// Generate encrypted key
 		Node* node = valid_nodes.at(i);
 		Key key_to_cipher = node->key;
-		ciphered_key = new byte[16];
-		aes_encrypt_func(key, KEY_SIZE, key_to_cipher, iv, ciphered_key);
+		ciphered_key = new byte[128];
+		ciphered_key_size = aes_encrypt_func(key, KEY_SIZE, key_to_cipher, iv, ciphered_key);
 
 		// Store result on a struct
 		KeyStruct key_struct;
 		key_struct.ciphered_key = ciphered_key;
+		key_struct.ciphered_key_size = ciphered_key_size;
 		key_struct.key_id = node->id;
 
 		ciphered_keys.push_back(key_struct);
@@ -390,4 +496,78 @@ Header *generateHeader(std::vector<Node*> valid_nodes, Key key)
 	header->key_array_length = ciphered_keys.size();
 
 	return header;
+}
+
+// File I/O Functions
+void writeToFile(const char* filename, Header* header, byte* content, int32_t content_length)
+{
+	// Open file
+	std::fstream myfile;
+	myfile = std::fstream(filename, std::ios::out | std::ios::binary);
+
+	// Write header
+	myfile.write((char*)&header->keys_size, sizeof(int32_t));
+	myfile.write((char*)&header->key_array_length, sizeof(int32_t));
+	myfile.write((char*)&header->content_length, sizeof(int32_t));
+	myfile.write((char*)&header->ciphered_content_length, sizeof(int32_t));
+
+	// Write keys with each id
+	for (int i = 0; i < header->key_array_length; i++)
+	{
+		myfile.write((char*)&header->ciphered_keys.at(i).key_id, sizeof(int32_t));
+		myfile.write((char*)&header->ciphered_keys.at(i).ciphered_key_size, sizeof(int32_t));
+		myfile.write((char*)header->ciphered_keys.at(i).ciphered_key, header->ciphered_keys.at(i).ciphered_key_size);
+	}
+
+	// Write encrypted content
+	myfile.write((char*)content, content_length);
+
+	// Finish
+	myfile.close();
+}
+
+int32_t readFromFile(const char* filename, Header& header, byte*& content)
+{
+	// Open file
+	std::fstream myfile;
+	myfile = std::fstream(filename, std::ios::in | std::ios::binary);
+
+	// Read header
+	myfile.read((char*)&header.keys_size, sizeof(int32_t));
+	myfile.read((char*)&header.key_array_length, sizeof(int32_t));
+	myfile.read((char*)&header.content_length, sizeof(int32_t));
+	myfile.read((char*)&header.ciphered_content_length, sizeof(int32_t));
+
+	// Read keys with each id
+	for (int i = 0; i < header.key_array_length; i++)
+	{
+		KeyStruct keystruct;
+
+		myfile.read((char*)&keystruct.key_id, sizeof(int32_t));
+		myfile.read((char*)&keystruct.ciphered_key_size, sizeof(int32_t));
+		keystruct.ciphered_key = new byte[keystruct.ciphered_key_size];
+		myfile.read((char*)keystruct.ciphered_key, keystruct.ciphered_key_size);
+
+		header.ciphered_keys.push_back(keystruct);
+	}
+
+	// Read content
+	content = new byte[header.ciphered_content_length];
+	myfile.read((char*)content, header.ciphered_content_length);
+
+	// Return
+	return header.content_length;
+}
+
+// Vector functions
+
+bool vector_contains(std::vector<int32_t> vector, int32_t value)
+{
+	for (int i = 0; i < vector.size(); i++)
+	{
+		if (vector.at(i) == value)
+			return true;
+	}
+
+	return false;
 }
