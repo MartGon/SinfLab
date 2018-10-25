@@ -76,11 +76,13 @@ private:
 
 // Tree functions
 
-int32_t calculateTreeSize(int32_t levels);
+int32_t calculateTreeSize(int32_t devices);
 
-Tree generateBinaryTree(int32_t levels);
+Tree generateBinaryTree(int32_t devices);
 
 std::vector<Node*> getRevokedNodes(Tree tree);
+
+std::vector<int> getRevokedNodesFromArgs(char* revokedset);
 
 std::vector<Node*>getValidKeyNodes(Tree tree, std::vector<Node*> revoked_nodes);
 
@@ -117,6 +119,10 @@ Header* generateHeader(std::vector<Node*> valid_nodes, Key key);
 void writeToFile(const char* filename, Header* header, byte* content, int32_t content_length);
 
 int32_t readFromFile(const char* filename, Header& header, byte*& content);
+
+int readContentFromFile(const char* filename, byte*& buffer);
+
+void writeToContentFile(const char* filename, byte* buffer, int32_t content_length);
 
 // Vector functions
 

@@ -6,7 +6,7 @@ bool debug = true;
 const int32_t KEY_SIZE = 16;
 byte* iv = (byte*)"McQfTjWnZr4u7x!";
 
-int main(void)
+int main(int arg, char* argv[])
 {
 	// Initiliaze random generator to use a hardware source of entropy
 	initRandomGenerator();
@@ -14,11 +14,23 @@ int main(void)
 	// Debug
 	// test_ciphering();
 
+	if (arg != 3)
+	{
+		std::cout << "Wrong number of arguments, need one path to a file to encrypt and a set of revoked devices separated with commas i.e.\n\ndvdcrypt classifiedfile.pdf 1, 3\n";
+		std::cin.get();
+		return -1;
+	}
+
+	// Read content file
+	char* content_filename = argv[1];
+	byte* content;
+	int32_t content_length = readContentFromFile(content_filename, content);
+
 	// Get revoked devices' ids
-	std::vector<int> revoked_devices = {8};
+	std::vector<int> revoked_devices = getRevokedNodesFromArgs(argv[2]);
 
 	// Generate the binary tree of 4 levels
-	Tree tree = generateBinaryTree(4);
+	Tree tree = generateBinaryTree(3);
 
 	// Update the tree with the revoked keys
 	tree = updateTree(tree, revoked_devices);
@@ -38,9 +50,9 @@ int main(void)
 	Header* header = generateHeader(valid_nodes, key);
 
 	// Encrypt the content
-	byte* content = (byte*)"Hola, hello, salut, guten";
-	int32_t content_length = strlen((char*)content);
-	byte* ciphertext = new byte[128];
+	//byte* content = (byte*)"Hola, hello, salut, guten";
+	//int32_t content_length = strlen((char*)content);
+	byte* ciphertext = new byte[content_length + 128];
 	int32_t ciphertext_length = 0;
 	ciphertext_length = aes_encrypt_func(content, content_length, key, iv, ciphertext);
 
@@ -122,7 +134,12 @@ int main(void)
 	aes_decrypt_func(read_ciphered_content, header->ciphered_content_length, decrypted_key, iv, decrypted_content);
 	decrypted_content[header->content_length] = '\0';
 
-	std::cout << "The decrypted content is \n\n" << decrypted_content << "\n";
+	// Write decrypted content file
+	char* output_filename = new char[strlen(filename) + 10];
+	strcpy(output_filename, "decrypted_");
+	strcat(output_filename, content_filename);
+	writeToContentFile(output_filename, decrypted_content, header->content_length);
+	std::cout << "The decrypted content has been written to " << output_filename << " \n";
 
 	std::cin.get();
 
@@ -266,14 +283,14 @@ void log(std::string str)
 }
 
 // Tree functions
-int32_t calculateTreeSize(int32_t levels)
+int32_t calculateTreeSize(int32_t devices)
 {
-	return pow(2, levels) - 1;
+	return (devices * 2) - 1;
 }
 
-Tree generateBinaryTree(int32_t levels)
+Tree generateBinaryTree(int32_t devices)
 {
-	int32_t size = calculateTreeSize(levels);
+	int32_t size = calculateTreeSize(devices);
 	log("Tree size is " + std::to_string(size) + "\n");
 
 	// Create Tree
@@ -292,6 +309,11 @@ Tree generateBinaryTree(int32_t levels)
 	return tree;
 }
 
+Tree generateBinaryTreeByNumberOfDevices(int32_t device)
+{
+	return Tree();
+}
+
 std::vector<Node*> getRevokedNodes(Tree tree)
 {
 	std::vector<Node*> nodes;
@@ -304,6 +326,21 @@ std::vector<Node*> getRevokedNodes(Tree tree)
 	}
 
 	return nodes;
+}
+
+std::vector<int> getRevokedNodesFromArgs(char * revokedset)
+{
+	std::vector<int> revokedNodes;
+
+	int32_t length = strlen(revokedset);
+	for (int i = 0; i < length; i++)
+	{
+		char c = revokedset[i];
+		if (c != ' ' && c != ',')
+			revokedNodes.push_back(c - '0');
+	}
+		
+	return revokedNodes;
 }
 
 std::vector<Node*> getValidKeyNodes(Tree tree, std::vector<Node*> revoked_nodes)
@@ -435,7 +472,8 @@ Node* Node::getSibling(Tree tree)
 
 	int sibling_index = 0;
 
-	if (id % 2)
+	// Before id % 2
+	if (id & 1)
 		sibling_index = (id - 1);
 	else
 		sibling_index = (id + 1);
@@ -555,8 +593,47 @@ int32_t readFromFile(const char* filename, Header& header, byte*& content)
 	content = new byte[header.ciphered_content_length];
 	myfile.read((char*)content, header.ciphered_content_length);
 
+	myfile.close();
+
 	// Return
 	return header.content_length;
+}
+
+int readContentFromFile(const char * filename, byte*& buffer)
+{
+	// Open file
+	std::fstream myfile;
+	myfile = std::fstream(filename, std::ios::in | std::ios::binary);
+
+	// Get content length
+	myfile.seekg(0, myfile.end);
+	int content_length = myfile.tellg();
+	myfile.seekg(0, myfile.beg);
+
+	// Buffer
+	buffer = new byte[content_length];
+
+	// Read file
+	myfile.read((char*)buffer, content_length);
+
+	myfile.close();
+
+	// Return content
+	return content_length;
+}
+
+void writeToContentFile(const char * filename, byte * buffer, int32_t content_length)
+{
+	// Open file
+	std::fstream myfile;
+	myfile = std::fstream(filename, std::ios::out | std::ios::binary);
+
+	// Write
+	myfile.write((char*)buffer, content_length);
+
+	// Close file
+
+	myfile.close();
 }
 
 // Vector functions
