@@ -21,6 +21,12 @@ class Node;
 struct Header;
 struct KeyStruct;
 
+// Menu functions
+
+int32_t encryptContent(int32_t nodes, char* content_filename, char* revokedset);
+
+int32_t decryptContent(char* ciphered_content_filename, int32_t device);
+
 // Utilities
 using Tree = std::vector<Node*>;
 using Key = byte*;
@@ -90,6 +96,14 @@ bool isValidIndex(Tree tree, int32_t index);
 
 Tree updateTree(Tree tree, std::vector<int> revoked_devices);
 
+// Label functions
+// Traditional label -> Root = tree.size()
+// Standard label -> Root = 1
+
+int32_t tradLabelToStandard(int32_t id, Tree tree);
+
+int32_t standardLabelToTrad(int32_t id, Tree tree);
+
 // Key
 
 struct KeyStruct
@@ -116,13 +130,17 @@ Header* generateHeader(std::vector<Node*> valid_nodes, Key key);
 
 // File I/O Functions
 
-void writeToFile(const char* filename, Header* header, byte* content, int32_t content_length);
-
 int32_t readFromFile(const char* filename, Header& header, byte*& content);
 
 int readContentFromFile(const char* filename, byte*& buffer);
 
+Tree readKeysFile();
+
+void writeToFile(const char* filename, Header* header, byte* content, int32_t content_length);
+
 void writeToContentFile(const char* filename, byte* buffer, int32_t content_length);
+
+void writeKeysFile(Tree tree);
 
 // Vector functions
 

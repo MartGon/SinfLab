@@ -1,6 +1,8 @@
 #include "DvdCrypt.h"
 
 
+// TODO: Mapeo de indices
+
 // Config
 bool debug = true;
 const int32_t KEY_SIZE = 16;
@@ -8,106 +10,200 @@ byte* iv = (byte*)"McQfTjWnZr4u7x!";
 
 int main(int arg, char* argv[])
 {
-	// Initiliaze random generator to use a hardware source of entropy
-	initRandomGenerator();
-
-	// Debug
-	// test_ciphering();
-
-	if (arg != 3)
+	if (arg < 2)
 	{
-		std::cout << "Wrong number of arguments, need one path to a file to encrypt and a set of revoked devices separated with commas i.e.\n\ndvdcrypt classifiedfile.pdf 1, 3\n";
+		std::cout << "Wrong number of arguments\n"
+			<< "crypt filename devices revokedset\n\n"
+			<< "crypt classfiedfile.pdf 15 1,2\n\n"
+			<< "decrypt encrypted_filename device_to_decrypt_content\n\n"
+			<< "decrypt encryptedfile.cry 1\n";
+
 		std::cin.get();
 		return -1;
 	}
 
+	if (char* command = argv[1])
+	{
+		std::string com(command);
+
+		// Crypt command
+		if (com == "crypt")
+		{
+			int32_t nodes;
+
+			if (char* nodes_str = argv[3])
+				nodes = atoi(nodes_str);
+			else 
+			{
+				std::cout << "Missing nodes number\n";
+				std::cin.get();
+				return -1;
+			}
+
+			char* filename;
+
+			if (!(filename = argv[2]))
+			{
+				std::cout << "Missing filename\n";
+				std::cin.get();
+				return -1;
+			}
+
+			char* revokedset;
+
+			if (!(revokedset = argv[4]))
+			{
+				std::cout << "Missing revokedset\n";
+				std::cin.get();
+				return -1;
+			}
+
+			encryptContent(nodes, filename, revokedset);
+
+		}
+
+		// Decrypt Command
+		else if (com == "decrypt")
+		{
+			char* filename;
+			if (!(filename = argv[2]))
+			{
+				std::cout << "Missing filename\n";
+				std::cin.get();
+				return -1;
+			}
+
+			int device;
+
+			if (char* device_str = argv[3])
+				device = atoi(device_str);
+			else
+			{
+				std::cout << "Missing device to decrypt content\n";
+				std::cin.get();
+				return -1;
+			}
+
+			decryptContent(filename, device);
+
+		}
+
+		// Unknown Command
+		else
+		{
+			std::cout << "Unknown command\n";
+			std::cin.get();
+			return -1;
+		}
+	}
+
+	return 0;
+}
+
+// Menu functions
+
+int32_t encryptContent(int32_t nodes, char *content_filename, char * revokedset)
+{
+	// Initiliaze random generator to use a hardware source of entropy
+	initRandomGenerator();
+
 	// Read content file
-	char* content_filename = argv[1];
 	byte* content;
 	int32_t content_length = readContentFromFile(content_filename, content);
 
 	// Get revoked devices' ids
-	std::vector<int> revoked_devices = getRevokedNodesFromArgs(argv[2]);
+	std::vector<int> revoked_devices = getRevokedNodesFromArgs(revokedset);
 
 	// Generate the binary tree of 4 levels
-	Tree tree = generateBinaryTree(3);
+	Tree tree = generateBinaryTree(nodes);
 
 	// Update the tree with the revoked keys
+	log("Updating tree with revoked devices\n");
 	tree = updateTree(tree, revoked_devices);
 
 	// Get revoked nodes
+	log("Getting revoked devices from tree\n");
 	std::vector<Node*> revoked_nodes = getRevokedNodes(tree);
 
 	// Get the cover of S
+	log("Getting the cover of S, keys to be used for encrypting the final key\n");
 	std::vector<Node*> valid_nodes = getValidKeyNodes(tree, revoked_nodes);
 
 	// Generate the key for encrypting the content
+	log("Generating final key\n");
 	int32_t key_size = KEY_SIZE;
 	Key key = generateRandomKey(key_size);
 
 	// Ecnrypt the key with the keys from the covers of S
 	// Generate the header of the file
+	log("Generating header for the encrypted file\n");
 	Header* header = generateHeader(valid_nodes, key);
 
 	// Encrypt the content
-	//byte* content = (byte*)"Hola, hello, salut, guten";
-	//int32_t content_length = strlen((char*)content);
+	log("Encrypting content\n");
 	byte* ciphertext = new byte[content_length + 128];
 	int32_t ciphertext_length = 0;
 	ciphertext_length = aes_encrypt_func(content, content_length, key, iv, ciphertext);
 
 	// Update header
+	log("Updating header file with results of the cipher\n");
 	header->ciphered_content_length = ciphertext_length;
 	header->content_length = content_length;
 
-	// Debug
-	/*
-	byte* decrypted = new byte[128];
-	aes_decrypt_func(ciphertext, ciphertext_length, key, iv, decrypted);
-	decrypted[content_length] = '\0';
-	*/
-
 	// Write to file
-	const char* filename = "cipher-content.cry";
+	log("Writting content to file\n");
+	char* filename = new char[strlen(content_filename) + 10];
+	strcpy(filename, "encrypted_");
+	strcat(filename, content_filename);
 	writeToFile(filename, header, ciphertext, ciphertext_length);
-	std::cout << "Content has been successfully encrypted on " <<  filename << " \n";
+	std::cout << "Content has been successfully encrypted on " << filename << " \n";
 
-	// DECRYPTION
+	// Write keys file
+	log("Writting keys file\n");
+	writeKeysFile(tree);
 
-	// Prompt for decryption
+	return 0;
+}
+
+int32_t decryptContent(char * ciphered_content_filename, int32_t device)
+{
+	// Get tree from keys.file
+	Tree tree = readKeysFile();
+
+	std::cout << "Tree size found is " << std::to_string(tree.size() - 1) << "\n";
+
+	// Node to use for decrypting
+	int32_t trad_device = device;
+	device = tradLabelToStandard(device, tree);
 	Node* decrypting_node;
-	int device = 1;
 
-	while (true)
+	if (isValidIndex(tree, device))
 	{
-		std::cout << "In order to decrypt, choose a device for decrypting\n";
-		std::cin >> device;
-		std::cin.get();
-		std::cout << "You have chosen device " << std::to_string(device) << " \n";
-
-		if (isValidIndex(tree, device))
+		Node* node = tree.at(device);
+		if (node->isDevice(tree))
 		{
-			Node* node = tree.at(device);
-			if (node->isDevice(tree))
-			{
-				decrypting_node = node;
-				break;
-			}
-			else
-				std::cout << "The node with the given id is not a device\n";
+			decrypting_node = node;
 		}
 		else
-			std::cout << "The node with the given id was not found\n";
+		{
+			std::cout << "The node with the given id is not a device\n";
+			return -1;
+		}
+	}
+	else
+	{
+		std::cout << "The node with the given id was not found\n";
+		return -1;
 	}
 
 	// Log
-	std::cout << "Trying to decrypt the file with device " << std::to_string(device) << "\n";
+	std::cout << "Trying to decrypt the file with device " << std::to_string(trad_device) << "\n";
 
 	// Read file
 	Header read_header;
 	byte* read_ciphered_content;
-	readFromFile(filename, read_header, read_ciphered_content);
-	
+	readFromFile(ciphered_content_filename, read_header, read_ciphered_content);
+
 	// Discover if we can decrypt the content or not
 	KeyStruct keystruct = decrypting_node->getDecryptKeyByHeader(tree, read_header);
 
@@ -125,25 +221,24 @@ int main(int arg, char* argv[])
 	byte* encrypted_key = keystruct.ciphered_key;
 	int32_t encrypted_key_length = keystruct.ciphered_key_size;
 	int32_t decrypted_key_size = read_header.keys_size;
+	int32_t key_size = read_header.keys_size;
 
 	aes_decrypt_func(encrypted_key, encrypted_key_length, key_to_decrypt, iv, decrypted_key);
 	decrypted_key[key_size] = '\0';
 
 	// Decrypting the content
-	byte* decrypted_content = new byte[header->content_length];
-	aes_decrypt_func(read_ciphered_content, header->ciphered_content_length, decrypted_key, iv, decrypted_content);
-	decrypted_content[header->content_length] = '\0';
+	byte* decrypted_content = new byte[read_header.content_length];
+	aes_decrypt_func(read_ciphered_content, read_header.ciphered_content_length, decrypted_key, iv, decrypted_content);
+	decrypted_content[read_header.content_length] = '\0';
 
 	// Write decrypted content file
-	char* output_filename = new char[strlen(filename) + 10];
+	char* output_filename = new char[strlen(ciphered_content_filename) + 10];
 	strcpy(output_filename, "decrypted_");
-	strcat(output_filename, content_filename);
-	writeToContentFile(output_filename, decrypted_content, header->content_length);
+	strcat(output_filename, ciphered_content_filename);
+	writeToContentFile(output_filename, decrypted_content, read_header.content_length);
 	std::cout << "The decrypted content has been written to " << output_filename << " \n";
 
-	std::cin.get();
-
-	return 0;
+	return int32_t();
 }
 
 // Cipher fuctions
@@ -309,11 +404,6 @@ Tree generateBinaryTree(int32_t devices)
 	return tree;
 }
 
-Tree generateBinaryTreeByNumberOfDevices(int32_t device)
-{
-	return Tree();
-}
-
 std::vector<Node*> getRevokedNodes(Tree tree)
 {
 	std::vector<Node*> nodes;
@@ -379,7 +469,7 @@ Tree updateTree(Tree tree, std::vector<int> revoked_devices)
 {
 	for (int i = 0; i < revoked_devices.size(); i++)
 	{
-		int index = revoked_devices.at(i);
+		int index = tradLabelToStandard(revoked_devices.at(i),tree);
 
 		if (!isValidIndex(tree, index))
 			continue;
@@ -390,6 +480,22 @@ Tree updateTree(Tree tree, std::vector<int> revoked_devices)
 	}
 
 	return tree;
+}
+
+// Label functions
+
+int32_t tradLabelToStandard(int32_t id, Tree tree)
+{
+	int size = tree.size();
+
+	return size - id;
+}
+
+int32_t standardLabelToTrad(int32_t id, Tree tree)
+{
+	int size = tree.size();
+
+	return size - id;
 }
 
 // Classes
@@ -537,32 +643,6 @@ Header *generateHeader(std::vector<Node*> valid_nodes, Key key)
 }
 
 // File I/O Functions
-void writeToFile(const char* filename, Header* header, byte* content, int32_t content_length)
-{
-	// Open file
-	std::fstream myfile;
-	myfile = std::fstream(filename, std::ios::out | std::ios::binary);
-
-	// Write header
-	myfile.write((char*)&header->keys_size, sizeof(int32_t));
-	myfile.write((char*)&header->key_array_length, sizeof(int32_t));
-	myfile.write((char*)&header->content_length, sizeof(int32_t));
-	myfile.write((char*)&header->ciphered_content_length, sizeof(int32_t));
-
-	// Write keys with each id
-	for (int i = 0; i < header->key_array_length; i++)
-	{
-		myfile.write((char*)&header->ciphered_keys.at(i).key_id, sizeof(int32_t));
-		myfile.write((char*)&header->ciphered_keys.at(i).ciphered_key_size, sizeof(int32_t));
-		myfile.write((char*)header->ciphered_keys.at(i).ciphered_key, header->ciphered_keys.at(i).ciphered_key_size);
-	}
-
-	// Write encrypted content
-	myfile.write((char*)content, content_length);
-
-	// Finish
-	myfile.close();
-}
 
 int32_t readFromFile(const char* filename, Header& header, byte*& content)
 {
@@ -586,6 +666,7 @@ int32_t readFromFile(const char* filename, Header& header, byte*& content)
 		keystruct.ciphered_key = new byte[keystruct.ciphered_key_size];
 		myfile.read((char*)keystruct.ciphered_key, keystruct.ciphered_key_size);
 
+		//std::cout << "Device " << std::to_string(keystruct.key_id) << " can decrypt\n";
 		header.ciphered_keys.push_back(keystruct);
 	}
 
@@ -622,6 +703,67 @@ int readContentFromFile(const char * filename, byte*& buffer)
 	return content_length;
 }
 
+Tree readKeysFile()
+{
+	// Declare tree
+	Tree tree;
+	tree.push_back(nullptr);
+	int32_t key_size;
+	int32_t tree_size;
+	
+	// Open file
+	std::fstream myfile;
+	const char* filename = "keys.txt";
+	myfile = std::fstream(filename, std::ios::in | std::ios::binary);
+
+	// Write keys header
+	myfile.read((char*)&key_size, sizeof(int32_t));
+	myfile.read((char*)&tree_size, sizeof(int32_t));
+
+	for (int i = 1; i < tree_size; i++)
+	{
+		// Create node
+		Node* node = new Node();
+		node->key = new byte[key_size];
+
+		// Read data
+		myfile.read((char*)node->key, key_size);
+		myfile.read((char*)&node->revoked, sizeof(bool));
+		
+		// Add the node
+		tree.push_back(node);
+	}
+
+	return tree;
+}
+
+void writeToFile(const char* filename, Header* header, byte* content, int32_t content_length)
+{
+	// Open file
+	std::fstream myfile;
+	myfile = std::fstream(filename, std::ios::out | std::ios::binary);
+
+	// Write header
+	myfile.write((char*)&header->keys_size, sizeof(int32_t));
+	myfile.write((char*)&header->key_array_length, sizeof(int32_t));
+	myfile.write((char*)&header->content_length, sizeof(int32_t));
+	myfile.write((char*)&header->ciphered_content_length, sizeof(int32_t));
+
+	// Write keys with each id
+	for (int i = 0; i < header->key_array_length; i++)
+	{
+		myfile.write((char*)&header->ciphered_keys.at(i).key_id, sizeof(int32_t));
+		myfile.write((char*)&header->ciphered_keys.at(i).ciphered_key_size, sizeof(int32_t));
+		myfile.write((char*)header->ciphered_keys.at(i).ciphered_key, header->ciphered_keys.at(i).ciphered_key_size);
+	}
+
+	// Write encrypted content
+	myfile.write((char*)content, content_length);
+
+	// Finish
+	myfile.close();
+}
+
 void writeToContentFile(const char * filename, byte * buffer, int32_t content_length)
 {
 	// Open file
@@ -632,7 +774,33 @@ void writeToContentFile(const char * filename, byte * buffer, int32_t content_le
 	myfile.write((char*)buffer, content_length);
 
 	// Close file
+	myfile.close();
+}
 
+void writeKeysFile(Tree tree)
+{
+	// Tree size
+	int32_t tree_size = tree.size();
+
+	// Open file
+	std::fstream myfile;
+	const char* filename = "keys.txt";
+	myfile = std::fstream(filename, std::ios::out | std::ios::binary);
+
+	// Write keys header
+	myfile.write((char*)&KEY_SIZE, sizeof(int32_t));
+	myfile.write((char*)&tree_size, sizeof(int32_t));
+
+	for (int i = 0; i < tree_size; i++)
+	{
+		if (Node* node = tree.at(i))
+		{
+			myfile.write((char*)node->key, strlen((char*)node->key));
+			myfile.write((char*)&node->revoked, sizeof(bool));
+		}
+	}
+
+	// Close file
 	myfile.close();
 }
 
