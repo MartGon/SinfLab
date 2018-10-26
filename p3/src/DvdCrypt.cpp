@@ -52,14 +52,9 @@ int main(int arg, char* argv[])
 			char* revokedset;
 
 			if (!(revokedset = argv[4]))
-			{
-				std::cout << "Missing revokedset\n";
-				std::cin.get();
-				return -1;
-			}
+				std::cout << "Running with no revoked set\n";
 
 			encryptContent(nodes, filename, revokedset);
-
 		}
 
 		// Decrypt Command
