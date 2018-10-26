@@ -1,0 +1,71 @@
+REQUIREMENTS
+
+In order to compile the program you'll need OpenSSL libraries which can be obtained by one of the following ways:
+
+LINUX Deabian/Ubuntu
+
+sudo apt install libssl-dev
+
+MacOS
+
+brew install openssl
+
+COMPILING
+
+You can compile the program by simply running
+
+g++ DvdCrypt.cpp -o dvd -lcrypto
+
+RUNNING
+
+ENCRYPTING
+
+In order to encrypt a file you'll need to enter the following on the command line (Assuming the file is on the same folder)
+
+./dvd crypt {filename.file} {number of devices} [{revoked devices separated by commas}}
+
+i.e.
+
+./dvd classified.pdf 15 1,7
+
+This will encrypt the classified.pdf file, yielding the encrypted_classified.pdf file on the same folder and the file keys.txt,
+which is a backup of the tree of keys generated during the execution, you should keep this file if you want to ever recover the
+encrypted file. 
+
+The devices with id 1 or 7 won't be able to decrypt the content because the key K which was used to encrypt the content
+was encrypted with keys which are not known by those devices.
+
+You don't need to introduce a revoked set of devices if you don't want to. 
+
+DECRYPTING
+
+In order to decrypt a file you'll need the keys.txt file corresponding to the previous encrypted file and enter the following
+
+./dvd decrypt {encrypted_filename} {device_to_use_for_decrypting}
+
+i.e.
+
+./dvd decrypt encrypted_classified.pdf 2
+
+This operation will try to decrypt the encrypted file with the given device. In case the given id is not a device or it is not valid
+the program will exit. If the device knows the key to decrypt the key K, this operation will yield the file decrypted_encrypted_classified.pdf, which should 
+be exactly the same as the original.
+
+INFORMATION ABOUT THE IMPLEMENTATION
+
+The header that is saved at the beginning of the encrypted file has the following structure:
+
+struct Header
+{
+	int32_t keys_size;
+	int32_t key_array_length;
+	int32_t content_length;
+	int32_t ciphered_content_length;
+	
+	KeyStruct ciphered_keys[]
+	{
+		int32_t key_id;
+		int32_t ciphered_key_size;
+		byte ciphered_key[keys_size];
+	}
+};
