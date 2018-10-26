@@ -62,10 +62,24 @@ struct Header
 	int32_t content_length;
 	int32_t ciphered_content_length;
 	
-	KeyStruct ciphered_keys[]
+	KeyStruct ciphered_keys[key_array_length]
 	{
 		int32_t key_id;
 		int32_t ciphered_key_size;
 		byte ciphered_key[keys_size];
 	}
 };
+
+The keys.txt file follows this structure:
+
+struct KeyStruct
+{
+	int32_t keys_size;
+	int32_t tree_size;
+	
+	NodeStruct nodes[tree_size]
+	{
+		bool isRevoked;
+		byte key[keys_size];
+	}
+}
