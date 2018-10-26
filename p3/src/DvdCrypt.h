@@ -102,8 +102,6 @@ Tree updateTree(Tree tree, std::vector<int> revoked_devices);
 
 int32_t tradLabelToStandard(int32_t id, Tree tree);
 
-int32_t standardLabelToTrad(int32_t id, Tree tree);
-
 // Key
 
 struct KeyStruct

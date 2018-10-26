@@ -1,8 +1,5 @@
 #include "DvdCrypt.h"
 
-
-// TODO: Mapeo de indices
-
 // Config
 bool debug = true;
 const int32_t KEY_SIZE = 16;
@@ -18,7 +15,7 @@ int main(int arg, char* argv[])
 			<< "decrypt encrypted_filename device_to_decrypt_content\n\n"
 			<< "decrypt encryptedfile.cry 1\n";
 
-		std::cin.get();
+		
 		return -1;
 	}
 
@@ -36,7 +33,6 @@ int main(int arg, char* argv[])
 			else 
 			{
 				std::cout << "Missing nodes number\n";
-				std::cin.get();
 				return -1;
 			}
 
@@ -45,7 +41,6 @@ int main(int arg, char* argv[])
 			if (!(filename = argv[2]))
 			{
 				std::cout << "Missing filename\n";
-				std::cin.get();
 				return -1;
 			}
 
@@ -64,7 +59,7 @@ int main(int arg, char* argv[])
 			if (!(filename = argv[2]))
 			{
 				std::cout << "Missing filename\n";
-				std::cin.get();
+				
 				return -1;
 			}
 
@@ -75,7 +70,7 @@ int main(int arg, char* argv[])
 			else
 			{
 				std::cout << "Missing device to decrypt content\n";
-				std::cin.get();
+				
 				return -1;
 			}
 
@@ -87,7 +82,7 @@ int main(int arg, char* argv[])
 		else
 		{
 			std::cout << "Unknown command\n";
-			std::cin.get();
+			
 			return -1;
 		}
 	}
@@ -205,7 +200,7 @@ int32_t decryptContent(char * ciphered_content_filename, int32_t device)
 	if (!keystruct.key_id)
 	{
 		std::cout << "Device cannot decrypt the content\n";
-		std::cin.get();
+		
 		return -1;
 	}
 
@@ -258,7 +253,7 @@ int32_t aes_encrypt_func(byte* plaintext, int32_t plaintext_len, const byte* key
 
 	// Finalize the encryption
 	if (1 != EVP_EncryptFinal_ex(ctx, ciphertext + len, &len))
-		std::cout << "Error in finalizing";
+		std::cout << "Error in finalizing\n";
 	ciphertext_len += len;
 
 	// Clean the encrypting object
@@ -287,7 +282,7 @@ int32_t aes_decrypt_func(byte * ciphertext, int ciphertext_len, byte * key, byte
 
 	// Finalize the encryption
 	if (1 != EVP_DecryptFinal_ex(ctx, plaintext + len, &len))
-		std::cout << "Error in finalizing";
+		std::cout << "Error in finalizing\n";
 	plaintext_len += len;
 
 	// Clean the encrypting object
@@ -338,7 +333,7 @@ byte* generateRandomKey(int32_t size)
 		log("Error while generating a random key");
 
 	// Cut char string
-	buffer[size] = '\0';
+	buffer[size-1] = '\0';
 
 	return buffer;
 }
@@ -417,6 +412,9 @@ std::vector<int> getRevokedNodesFromArgs(char * revokedset)
 {
 	std::vector<int> revokedNodes;
 
+	if (!revokedset)
+		return revokedNodes;
+
 	int32_t length = strlen(revokedset);
 	for (int i = 0; i < length; i++)
 	{
@@ -480,13 +478,6 @@ Tree updateTree(Tree tree, std::vector<int> revoked_devices)
 // Label functions
 
 int32_t tradLabelToStandard(int32_t id, Tree tree)
-{
-	int size = tree.size();
-
-	return size - id;
-}
-
-int32_t standardLabelToTrad(int32_t id, Tree tree)
 {
 	int size = tree.size();
 
@@ -722,8 +713,8 @@ Tree readKeysFile()
 		node->key = new byte[key_size];
 
 		// Read data
+		myfile.read((char*)&node->revoked, sizeof(char));
 		myfile.read((char*)node->key, key_size);
-		myfile.read((char*)&node->revoked, sizeof(bool));
 		
 		// Add the node
 		tree.push_back(node);
@@ -790,8 +781,8 @@ void writeKeysFile(Tree tree)
 	{
 		if (Node* node = tree.at(i))
 		{
-			myfile.write((char*)node->key, strlen((char*)node->key));
-			myfile.write((char*)&node->revoked, sizeof(bool));
+			myfile.write((char*)&node->revoked, sizeof(char));
+			myfile.write((char*)node->key, KEY_SIZE);
 		}
 	}
 
