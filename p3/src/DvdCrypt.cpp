@@ -3,7 +3,8 @@
 // Config
 bool debug = true;
 const int32_t KEY_SIZE = 16;
-byte* iv = (byte*)"McQfTjWnZr4u7x!";
+const int32_t IV_SIZE = 16;
+byte* first_iv = (byte*)"McQfTjWnZr4u7x!";
 
 int main(int arg, char* argv[])
 {
@@ -123,11 +124,12 @@ int32_t encryptContent(int32_t nodes, char *content_filename, char * revokedset)
 	log("Generating final key\n");
 	int32_t key_size = KEY_SIZE;
 	Key key = generateRandomKey(key_size);
+	byte* iv = generateRandomKey(IV_SIZE);
 
 	// Ecnrypt the key with the keys from the covers of S
 	// Generate the header of the file
 	log("Generating header for the encrypted file\n");
-	Header* header = generateHeader(valid_nodes, key);
+	Header* header = generateHeader(valid_nodes, key, iv);
 
 	// Encrypt the content
 	log("Encrypting content\n");
@@ -205,26 +207,43 @@ int32_t decryptContent(char * ciphered_content_filename, int32_t device)
 	}
 
 	// Decrypting process
-	// Decrypting the key
 	byte* key_to_decrypt = tree.at(keystruct.key_id)->key;
-	byte* decrypted_key = new byte[keystruct.ciphered_key_size];
-	byte* encrypted_key = keystruct.ciphered_key;
+
+	std::cout << "Key found\n";
+
+	// Decrypting the iv
+	byte* iv = new byte[128];
+	byte* ciphered_iv = keystruct.ciphered_iv;
+	int32_t ciphered_iv_size = keystruct.ciphered_iv_size;
+
+	aes_decrypt_func(ciphered_iv, ciphered_iv_size, key_to_decrypt, first_iv, iv);
+	iv[IV_SIZE] = '\0';
+	std::cout << "IV Decrypted\n";
+
+	// Decrypting the Key
 	int32_t encrypted_key_length = keystruct.ciphered_key_size;
 	int32_t decrypted_key_size = read_header.keys_size;
 	int32_t key_size = read_header.keys_size;
+	byte* decrypted_key = new byte[128];
+	byte* encrypted_key = keystruct.ciphered_key;
 
 	aes_decrypt_func(encrypted_key, encrypted_key_length, key_to_decrypt, iv, decrypted_key);
 	decrypted_key[key_size] = '\0';
+	std::cout << "Key Decrypted\n";
+
 
 	// Decrypting the content
 	byte* decrypted_content = new byte[read_header.content_length];
 	aes_decrypt_func(read_ciphered_content, read_header.ciphered_content_length, decrypted_key, iv, decrypted_content);
-	decrypted_content[read_header.content_length] = '\0';
+	//decrypted_content[read_header.content_length] = '\0';
+	std::cout << "Content Decrypted\n";
 
 	// Write decrypted content file
 	char* output_filename = new char[strlen(ciphered_content_filename) + 10];
 	strcpy(output_filename, "decrypted_");
 	strcat(output_filename, ciphered_content_filename);
+	std::cout << "File name made\n";
+
 	writeToContentFile(output_filename, decrypted_content, read_header.content_length);
 	std::cout << "The decrypted content has been written to " << output_filename << " \n";
 
@@ -333,7 +352,7 @@ byte* generateRandomKey(int32_t size)
 		log("Error while generating a random key");
 
 	// Cut char string
-	buffer[size-1] = '\0';
+	//buffer[size-1] = '\0';
 
 	return buffer;
 }
@@ -342,6 +361,7 @@ byte* generateRandomKey(int32_t size)
 void test_ciphering()
 {
 	byte* key = nullptr;
+	byte* iv = (byte*)"McQfTjWnZr4u7x!";
 	key = generateRandomKey(16);
 	byte* message = (byte*)"Hola, hello, salut, guten";
 	byte* ciphertext = new byte[128];
@@ -596,25 +616,45 @@ int32_t Node::get_id()
 
 // Header Functions
 
-Header *generateHeader(std::vector<Node*> valid_nodes, Key key)
+Header *generateHeader(std::vector<Node*> valid_nodes, Key key, byte* iv)
 {
 	std::vector<KeyStruct> ciphered_keys;
-	Key ciphered_key = new byte[16];
+	// Key
 	int32_t ciphered_key_size = 0;
+	Key ciphered_key;
+
+	// IV
+	int32_t ciphered_iv_size = 0;
+	byte* ciphered_iv;
+	
 
 	for (int i = 0; i < valid_nodes.size(); i++)
 	{
 		// Generate encrypted key
 		Node* node = valid_nodes.at(i);
 		Key key_to_cipher = node->key;
+
+		// Key
 		ciphered_key = new byte[128];
 		ciphered_key_size = aes_encrypt_func(key, KEY_SIZE, key_to_cipher, iv, ciphered_key);
+		ciphered_key[ciphered_key_size] = '\0';
+
+		// IV
+		ciphered_iv = new byte[128];
+		ciphered_iv_size = aes_encrypt_func(iv, IV_SIZE, key_to_cipher, first_iv, ciphered_iv);
+		ciphered_iv[ciphered_iv_size] = '\0';
 
 		// Store result on a struct
 		KeyStruct key_struct;
+
+		// Key
 		key_struct.ciphered_key = ciphered_key;
 		key_struct.ciphered_key_size = ciphered_key_size;
 		key_struct.key_id = node->id;
+
+		// IV
+		key_struct.ciphered_iv_size = ciphered_iv_size;
+		key_struct.ciphered_iv = ciphered_iv;
 
 		ciphered_keys.push_back(key_struct);
 	}
@@ -622,6 +662,7 @@ Header *generateHeader(std::vector<Node*> valid_nodes, Key key)
 	// Generate the file's header
 	Header* header = new Header();
 	header->ciphered_keys = ciphered_keys;
+	header->iv_size = IV_SIZE;
 	header->keys_size = KEY_SIZE;
 	header->key_array_length = ciphered_keys.size();
 
@@ -647,12 +688,18 @@ int32_t readFromFile(const char* filename, Header& header, byte*& content)
 	{
 		KeyStruct keystruct;
 
+		// IV
+		myfile.read((char*)&keystruct.ciphered_iv_size, sizeof(int32_t));
+		keystruct.ciphered_iv = new byte[keystruct.ciphered_iv_size];
+		myfile.read((char*)keystruct.ciphered_iv, keystruct.ciphered_iv_size);
+
+		// Key
 		myfile.read((char*)&keystruct.key_id, sizeof(int32_t));
 		myfile.read((char*)&keystruct.ciphered_key_size, sizeof(int32_t));
 		keystruct.ciphered_key = new byte[keystruct.ciphered_key_size];
 		myfile.read((char*)keystruct.ciphered_key, keystruct.ciphered_key_size);
 
-		//std::cout << "Device " << std::to_string(keystruct.key_id) << " can decrypt\n";
+		std::cout << "Device " << std::to_string(keystruct.key_id) << " can decrypt\n";
 		header.ciphered_keys.push_back(keystruct);
 	}
 
@@ -738,6 +785,11 @@ void writeToFile(const char* filename, Header* header, byte* content, int32_t co
 	// Write keys with each id
 	for (int i = 0; i < header->key_array_length; i++)
 	{
+		// IV
+		myfile.write((char*)&header->ciphered_keys.at(i).ciphered_iv_size, sizeof(int32_t));
+		myfile.write((char*)header->ciphered_keys.at(i).ciphered_iv, header->ciphered_keys.at(i).ciphered_iv_size);
+
+		// KEY
 		myfile.write((char*)&header->ciphered_keys.at(i).key_id, sizeof(int32_t));
 		myfile.write((char*)&header->ciphered_keys.at(i).ciphered_key_size, sizeof(int32_t));
 		myfile.write((char*)header->ciphered_keys.at(i).ciphered_key, header->ciphered_keys.at(i).ciphered_key_size);

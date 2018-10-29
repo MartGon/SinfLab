@@ -106,15 +106,21 @@ int32_t tradLabelToStandard(int32_t id, Tree tree);
 
 struct KeyStruct
 {
+	// Key
 	int32_t key_id;
 	int32_t ciphered_key_size;
 	Key ciphered_key;
+
+	// IV
+	int32_t ciphered_iv_size;
+	byte* ciphered_iv;
 };
 
 // Header
 struct Header
 {
 public:
+	int32_t iv_size;
 	int32_t keys_size;
 	int32_t key_array_length;
 	int32_t content_length;
@@ -124,7 +130,7 @@ public:
 
 // Header Functions
 
-Header* generateHeader(std::vector<Node*> valid_nodes, Key key);
+Header* generateHeader(std::vector<Node*> valid_nodes, Key key, byte* iv);
 
 // File I/O Functions
 
