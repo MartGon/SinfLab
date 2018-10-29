@@ -3,7 +3,8 @@
 // Config
 bool debug = true;
 const int32_t KEY_SIZE = 16;
-byte* iv = (byte*)"McQfTjWnZr4u7x!";
+//byte* iv = (byte*)"McQfTjWnZr4u7x!1";
+unsigned char *iv = (unsigned char *)"0123456789ABCDEF";
 
 int main(int arg, char* argv[])
 {
@@ -102,6 +103,7 @@ int32_t encryptContent(int32_t nodes, char *content_filename, char * revokedset)
 	int32_t content_length = readContentFromFile(content_filename, content);
 
 	// Get revoked devices' ids
+	// TODO - Cambiar el método, no pilla números de 2 cifras
 	std::vector<int> revoked_devices = getRevokedNodesFromArgs(revokedset);
 
 	// Generate the binary tree of 4 levels
@@ -142,9 +144,9 @@ int32_t encryptContent(int32_t nodes, char *content_filename, char * revokedset)
 
 	// Write to file
 	log("Writting content to file\n");
-	char* filename = new char[strlen(content_filename) + 10];
-	strcpy(filename, "encrypted_");
-	strcat(filename, content_filename);
+	char* filename = /*new char[strlen(content_filename) + 12];*/ "encrypted";
+	//strcpy(filename, "encrypted_");
+	//strcat(filename, content_filename);
 	writeToFile(filename, header, ciphertext, ciphertext_length);
 	std::cout << "Content has been successfully encrypted on " << filename << " \n";
 
@@ -217,14 +219,14 @@ int32_t decryptContent(char * ciphered_content_filename, int32_t device)
 	decrypted_key[key_size] = '\0';
 
 	// Decrypting the content
-	byte* decrypted_content = new byte[read_header.content_length];
+	byte* decrypted_content = new byte[read_header.content_length + 128];
 	aes_decrypt_func(read_ciphered_content, read_header.ciphered_content_length, decrypted_key, iv, decrypted_content);
 	decrypted_content[read_header.content_length] = '\0';
 
 	// Write decrypted content file
-	char* output_filename = new char[strlen(ciphered_content_filename) + 10];
-	strcpy(output_filename, "decrypted_");
-	strcat(output_filename, ciphered_content_filename);
+	char* output_filename = /*new char[strlen(ciphered_content_filename) + 12];*/ "decrypted";
+	//strcpy(output_filename, "decrypted_");
+	//strcat(output_filename, ciphered_content_filename);
 	writeToContentFile(output_filename, decrypted_content, read_header.content_length);
 	std::cout << "The decrypted content has been written to " << output_filename << " \n";
 
@@ -237,6 +239,12 @@ int32_t aes_encrypt_func(byte* plaintext, int32_t plaintext_len, const byte* key
 {
 	// We create the encrypting object
 	EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
+
+	if (!ctx)
+	{
+		std::cout << "Error while initializing engine\n";
+		return -1;
+	}
 
 	// Create some variables to store length values after and before encrypting
 	int32_t len;
@@ -266,6 +274,12 @@ int32_t aes_decrypt_func(byte * ciphertext, int ciphertext_len, byte * key, byte
 {
 	// We create the encrypting object
 	EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
+
+	if (!ctx)
+	{
+		std::cout << "Error while initializing engine\n";
+		return -1;
+	}
 
 	// Create some variables to store length values after and before encrypting
 	int32_t len;
@@ -327,13 +341,13 @@ void initRandomGenerator()
 byte* generateRandomKey(int32_t size)
 {
 	byte* buffer = new byte[size];
-	int rc = RAND_bytes(buffer, size);
+	int rc = RAND_bytes(buffer, sizeof(buffer));
 
 	if (rc != 1)
 		log("Error while generating a random key");
 
 	// Cut char string
-	buffer[size-1] = '\0';
+	//buffer[size-1] = '\0';
 
 	return buffer;
 }
@@ -398,7 +412,7 @@ std::vector<Node*> getRevokedNodes(Tree tree)
 {
 	std::vector<Node*> nodes;
 
-	for (int i = 0; i < tree.size(); i++)
+	for (unsigned int i = 0; i < tree.size(); i++)
 	{
 		if (Node* node = tree.at(i))
 			if (node->revoked)
@@ -435,7 +449,7 @@ std::vector<Node*> getValidKeyNodes(Tree tree, std::vector<Node*> revoked_nodes)
 		valid_nodes.push_back(tree.at(1));
 
 	// Get the first child from the revoked nodes which is not revoked
-	for (int i = 0; i < revoked_nodes.size(); i++)
+	for (unsigned int i = 0; i < revoked_nodes.size(); i++)
 	{
 		Node* node = revoked_nodes.at(i);
 
@@ -455,12 +469,12 @@ std::vector<Node*> getValidKeyNodes(Tree tree, std::vector<Node*> revoked_nodes)
 
 bool isValidIndex(Tree tree, int32_t index)
 {
-	return index > 0 && index < tree.size();
+	return index > 0 && (uint32_t)index < tree.size();
 }
 
 Tree updateTree(Tree tree, std::vector<int> revoked_devices)
 {
-	for (int i = 0; i < revoked_devices.size(); i++)
+	for (unsigned int i = 0; i < revoked_devices.size(); i++)
 	{
 		int index = tradLabelToStandard(revoked_devices.at(i),tree);
 
@@ -517,7 +531,7 @@ KeyStruct Node::getDecryptKeyByHeader(Tree tree, Header header)
 
 	// Check whether there's a coincidence
 	int32_t key_id = 0;
-	for (int i = 0; i < header.ciphered_keys.size(); i++)
+	for (unsigned int i = 0; i < header.ciphered_keys.size(); i++)
 	{
 		key_id = header.ciphered_keys.at(i).key_id;
 		if (vector_contains(key_ids, key_id))
@@ -576,7 +590,7 @@ Node* Node::getSibling(Tree tree)
 std::pair<Node*, Node*> Node::getChildren(Tree tree)
 {
 	std::pair<Node*, Node*> children;
-	int child_index = id * 2;
+	unsigned int child_index = id * 2;
 
 	if (child_index >= tree.size())
 		return children;
@@ -599,10 +613,10 @@ int32_t Node::get_id()
 Header *generateHeader(std::vector<Node*> valid_nodes, Key key)
 {
 	std::vector<KeyStruct> ciphered_keys;
-	Key ciphered_key = new byte[16];
+	Key ciphered_key = 0;
 	int32_t ciphered_key_size = 0;
 
-	for (int i = 0; i < valid_nodes.size(); i++)
+	for (unsigned int i = 0; i < valid_nodes.size(); i++)
 	{
 		// Generate encrypted key
 		Node* node = valid_nodes.at(i);
@@ -678,7 +692,7 @@ int readContentFromFile(const char * filename, byte*& buffer)
 	myfile.seekg(0, myfile.beg);
 
 	// Buffer
-	buffer = new byte[content_length];
+	buffer = new byte[content_length + 1];
 
 	// Read file
 	myfile.read((char*)buffer, content_length);
@@ -794,7 +808,7 @@ void writeKeysFile(Tree tree)
 
 bool vector_contains(std::vector<int32_t> vector, int32_t value)
 {
-	for (int i = 0; i < vector.size(); i++)
+	for (unsigned int i = 0; i < vector.size(); i++)
 	{
 		if (vector.at(i) == value)
 			return true;
