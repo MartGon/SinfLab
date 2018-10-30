@@ -15,6 +15,7 @@
 #include <cmath>
 #include <string>
 #include <fstream>
+#include <sstream>
 
 // Forward Declaration
 class Node;
@@ -138,13 +139,13 @@ int32_t readFromFile(const char* filename, Header& header, byte*& content);
 
 int readContentFromFile(const char* filename, byte*& buffer);
 
-Tree readKeysFile();
+Tree readKeysFile(const char* filename);
 
 void writeToFile(const char* filename, Header* header, byte* content, int32_t content_length);
 
 void writeToContentFile(const char* filename, byte* buffer, int32_t content_length);
 
-void writeKeysFile(Tree tree);
+void writeKeysFile(Tree tree, const char* filename);
 
 // Vector functions
 
