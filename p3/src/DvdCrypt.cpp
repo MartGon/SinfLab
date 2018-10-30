@@ -678,7 +678,6 @@ Header *generateHeader(std::vector<Node*> valid_nodes, Key key, byte* iv)
 	// Generate the file's header
 	Header* header = new Header();
 	header->ciphered_keys = ciphered_keys;
-	header->iv_size = IV_SIZE;
 	header->keys_size = KEY_SIZE;
 	header->key_array_length = ciphered_keys.size();
 

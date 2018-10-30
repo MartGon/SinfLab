@@ -67,6 +67,9 @@ struct Header
 		int32_t key_id;
 		int32_t ciphered_key_size;
 		byte ciphered_key[keys_size];
+		
+		int32_t ciphered_iv_size;
+		byte* ciphered_iv;
 	}
 };
 

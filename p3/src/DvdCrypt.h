@@ -121,7 +121,6 @@ struct KeyStruct
 struct Header
 {
 public:
-	int32_t iv_size;
 	int32_t keys_size;
 	int32_t key_array_length;
 	int32_t content_length;
