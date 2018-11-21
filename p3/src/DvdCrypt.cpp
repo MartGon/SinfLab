@@ -136,7 +136,8 @@ int32_t encryptContent(int32_t nodes, char *content_filename, char * revokedset)
 
 	// Encrypt the content
 	log("Encrypting content\n");
-	byte* ciphertext = new byte[content_length + 128];
+	int index = content_length + 128;
+	byte* ciphertext = new byte[index];
 	int32_t ciphertext_length = 0;
 	ciphertext_length = aes_encrypt_func(content, content_length, key, iv, ciphertext);
 
