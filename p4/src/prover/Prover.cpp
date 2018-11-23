@@ -37,25 +37,24 @@ int main(int arg, char* argv[])
 		prev_block_hash = block->header.hashPrevBlock;
 
 		// Insert block
+		Node* node = nullptr;
 		if (prev_block)
-			tree.push_back(new Node(prev_block, prev_block_hash));
+		{
+			node = new Node(prev_block, prev_block_hash);
+			tree.push_back(node);
+		}
 
 		// Set prev block
 		prev_block = block;
 	}
 
 	// Add dummy block if odd number of blocks
-	uint32_t blocks_amount = tree.size();
-	if (blocks_amount & 1)
-	{
-		Node* last_node = tree.back();
-		Node* dummy = new Node(last_node->block, last_node->hash);
-		tree.push_back(dummy);
-		blocks_amount++;
-	}
+	// -1 Due to the first dummy block inserted
+	uint32_t blocks_amount = tree.size() - 1;
 
 	// Expand tree size
-	uint32_t tree_size = calculateTreeSize(blocks_amount);
+	// +1 Due to the first dummy block inserted
+	uint32_t tree_size = calculateTreeSize(blocks_amount) + 1;
 	tree.resize(tree_size);
 
 	// Relabel nodes
@@ -72,16 +71,18 @@ int main(int arg, char* argv[])
 	}
 
 	// Create upper nodes
+	uint32_t end_index = blocks_amount;
+	uint32_t start_index = 1;
+	uint32_t diff = end_index - start_index;
+	uint32_t quotient = 0;
 
-	uint32_t end_index = tree_size;
-	uint32_t start_index = blocks_amount;
-	while (end_index != 1)
+	while (end_index != start_index)
 	{
 		for (uint32_t i = start_index; i < end_index; i += 2)
 		{
 			// Choose siblings
-			uint32_t index1 = i;
-			uint32_t index2 = i + 1;
+			uint32_t index1 = tradLabelToStandard(i, tree_size);
+			uint32_t index2 = tradLabelToStandard(i + 1, tree_size);
 			Node* n1 = tree.at(index1);
 			Node* n2 = tree.at(index2);
 
@@ -109,10 +110,15 @@ int main(int arg, char* argv[])
 			tree.at(parent_id) = node;
 		}
 
-		// Resize laye nodes
-		start_index /= 2;
-		end_index /= 2;
+		// Calculate new index
+		diff = end_index - start_index;
+		quotient = diff / 2;
+
+		// Set new index
+		start_index = diff & 1 ? end_index + 1 : end_index;
+		end_index = start_index + quotient;
 	}
+
 	// Ask for user input
 	std::cout << "Press enter to close the program\n";
 
