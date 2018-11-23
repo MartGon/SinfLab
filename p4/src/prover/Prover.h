@@ -72,14 +72,15 @@ public:
 	// Node Utility variables
 	int32_t id = 1;
 
-	// Block
-	BlockChainBlock* block = nullptr;
-
 	// Hex hash
 	unsigned char* hash = nullptr;
 
+	// Block
+	BlockChainBlock* block = nullptr;
+
 	// Methods
 	hexstr getHexHash();
+	std::vector<Node*> getVerifyChain(Tree tree);
 
 	// Tree handling
 	Node* getParent(Tree tree);
@@ -110,8 +111,18 @@ int32_t tradLabelToStandard(int32_t id, uint32_t size);
 
 void sha256(unsigned char* input, int32_t input_length, unsigned char* output);
 
-// Readablility
+unsigned char* sumHash(unsigned char* h1, unsigned char* h2);
+
+// Utility functions
 
 std::string ucharToString(unsigned char* str, int32_t str_length);
 
 unsigned char* bitswap(unsigned char* in, uint32_t in_length);
+
+std::string hexStrToCharStr(std::string str);
+
+int8_t charToInt8(char c);
+
+// Verifier
+
+bool verifyBlock(std::vector<Node*> chain, Node* block, Node* root);

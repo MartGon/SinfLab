@@ -2,6 +2,7 @@
 
 // Magic number
 const uint32_t magic_number = 0xd9b4bef9;
+Tree tree;
 
 int main(int arg, char* argv[])
 {
@@ -12,7 +13,6 @@ int main(int arg, char* argv[])
 	}
 
 	// Create Tree
-	Tree tree;
 	tree.push_back(nullptr);
 
 	// Open file
@@ -42,6 +42,9 @@ int main(int arg, char* argv[])
 		{
 			node = new Node(prev_block, prev_block_hash);
 			tree.push_back(node);
+
+			//if (node->id == 2047)
+				//break;
 		}
 
 		// Set prev block
@@ -91,17 +94,7 @@ int main(int arg, char* argv[])
 			Node* node = new Node(parent_id);
 
 			// Concat block hashes
-			uint32_t concat_hash_length = SHA256_DIGEST_LENGTH * 2;
-			unsigned char* concat_hash = new unsigned char[concat_hash_length];
-
-			memcpy_s(concat_hash, concat_hash_length, n1->hash, SHA256_DIGEST_LENGTH);
-			concat_hash += SHA256_DIGEST_LENGTH;
-			memcpy_s(concat_hash, concat_hash_length, n2->hash, SHA256_DIGEST_LENGTH);
-			concat_hash -= SHA256_DIGEST_LENGTH;
-
-			// Compute hash
-			unsigned char* hash = new unsigned char[SHA256_DIGEST_LENGTH];
-			sha256(concat_hash, concat_hash_length, hash);
+			unsigned char* hash = sumHash(n1->hash, n2->hash);
 
 			// Set hash
 			node->hash = hash;
@@ -119,9 +112,36 @@ int main(int arg, char* argv[])
 		end_index = start_index + quotient;
 	}
 
-	// Ask for user input
-	std::cout << "Press enter to close the program\n";
+	// Verify proccess
+	uint32_t input_id  = 1; 
+	while (input_id != 0)
+	{
+		// Ask for user input
+		std::cout << "Enter a block number id to check if it belongs to the tree\n";
+		std::cin >> input_id;
 
+		// Search given block
+		input_id = tradLabelToStandard(input_id, tree_size);
+		Node* seeked_block = tree.at(input_id);
+
+		// Check if it is a block
+		if (!seeked_block->isBlock())
+			continue;
+
+		// Get verify chain
+		std::vector<Node*> chain = seeked_block->getVerifyChain(tree);
+
+		// Verify chain
+		Node* root = tree.at(1);
+		bool belong = verifyBlock(chain, seeked_block, root);
+
+		// Inform with output
+
+		if (belong)
+			std::cout << "The block was verfied correctly\n\n";
+		else
+			std::cout << "The block was not verified correctly\n\n";
+	}
 	// Close file
 	myfile.close();
 
@@ -191,6 +211,8 @@ bool seekMagicNumber(std::fstream& blockchain_file)
 	return magic_candidate == magic_number;
 }
 
+// OpenSSL implementations
+
 void sha256(unsigned char *input, int32_t input_length, unsigned char* output)
 {
 	// Declare hashing object
@@ -221,6 +243,24 @@ void sha256(unsigned char *input, int32_t input_length, unsigned char* output)
 	return;
 }
 
+unsigned char* sumHash(unsigned char* h1, unsigned char * h2)
+{
+	// Concat both inputs
+	uint32_t concat_hash_length = SHA256_DIGEST_LENGTH * 2;
+	unsigned char* concat_hash = new unsigned char[concat_hash_length];
+
+	memcpy_s(concat_hash, SHA256_DIGEST_LENGTH, h1, SHA256_DIGEST_LENGTH);
+	concat_hash += SHA256_DIGEST_LENGTH;
+	memcpy_s(concat_hash, SHA256_DIGEST_LENGTH, h2, SHA256_DIGEST_LENGTH);
+	concat_hash -= SHA256_DIGEST_LENGTH;
+
+	// Calculate hashes
+	unsigned char* hash = new unsigned char[SHA256_DIGEST_LENGTH];
+	sha256(concat_hash, concat_hash_length, hash);
+
+	return hash;
+}
+
 // Classes
 int16_t Node::last_id = 1;
 
@@ -246,6 +286,24 @@ Node::Node(BlockChainBlock* block, unsigned char* hash) : Node::Node()
 hexstr Node::getHexHash()
 {
 	return ucharToString(bitswap(hash, SHA256_DIGEST_LENGTH), SHA256_DIGEST_LENGTH);
+}
+
+std::vector<Node*> Node::getVerifyChain(Tree tree)
+{
+	std::vector<Node*> chain;
+
+	Node* parent = this;
+
+	while (parent)
+	{
+		Node* parent_sibling = parent->getSibling(tree);
+		if(parent_sibling)
+			chain.push_back(parent_sibling);
+
+		parent = parent->getParent(tree);
+	}
+
+	return chain;
 }
 
 // Tree handling
@@ -328,7 +386,7 @@ int32_t Node::get_id()
 std::string ucharToString(unsigned char * str, int32_t str_length)
 {
 	std::stringstream ss;
-	for (int i = 0; i < SHA256_DIGEST_LENGTH; i++)
+	for (int i = 0; i < str_length; i++)
 	{
 		ss << std::hex << std::setw(2) << std::setfill('0') << (int)str[i];
 	}
@@ -354,4 +412,53 @@ unsigned char* bitswap(unsigned char* in, uint32_t in_length)
 	}
 
 	return output;
+}
+
+std::string hexStrToCharStr(std::string str)
+{
+	int str_size = str.size();
+	std::string string;
+
+	if (str_size & 1)
+		return string;
+
+	for (int i = 0; i < str_size; i += 2)
+	{
+		int8_t h1 = str.at(i);
+		int8_t h2 = str.at(i + 1);
+		char d1 = charToInt8(h1) * 16;
+		char d2 = charToInt8(h2);
+		char r = d1 + d2;
+
+		string.push_back(r);
+	}
+
+	return string;
+}
+
+int8_t charToInt8(char c)
+{
+	if (c > 96 && c < 103)
+		return (int8_t)(c - 87);
+	else
+		return (int8_t)(c - 48);
+}
+
+// Verifier
+
+bool verifyBlock(std::vector<Node*> chain, Node * block, Node * root)
+{
+	unsigned char* hash = block->hash;
+
+	Node* sibling = nullptr;
+	for (int i = 0; i < chain.size(); i++)
+	{
+		sibling = chain.at(i);
+		if (sibling->id & 1)
+			hash = sumHash(sibling->hash, hash);
+		else
+			hash = sumHash(hash, sibling->hash);
+	}
+
+	return !memcmp(hash, root->hash, SHA256_DIGEST_LENGTH);
 }

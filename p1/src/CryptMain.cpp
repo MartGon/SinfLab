@@ -109,7 +109,7 @@ std::string hexStrToCharStr(std::string str)
 	int str_size = str.size();
 	std::string string;
 
-	if (str_size % 2)
+	if (str_size & 1)
 		return string;
 
 	for (int i = 0; i < str_size; i += 2)
