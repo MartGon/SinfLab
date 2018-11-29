@@ -19,11 +19,16 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
 # Find OpenSSL
 find_package(OpenSSL REQUIRED)
 
+# Find OpenCV
+find_package(OpenCV REQUIRED)
+
 # Directories to be included
 include_directories(${OPENSSL_INCLUDE_DIR})
+include_directories(${OpenCV_INCLUDE_DIRS})
 
 # Add src directory
 add_subdirectory(p1)
 add_subdirectory(p2)
 add_subdirectory(p3)
 add_subdirectory(p4)
+add_subdirectory(p5)

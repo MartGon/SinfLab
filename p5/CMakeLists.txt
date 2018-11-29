@@ -1,0 +1,2 @@
+# Add src directory
+add_subdirectory(src)
