@@ -1,9 +1,4 @@
-#include <opencv2/core/core.hpp>
-#include <opencv2/highgui/highgui.hpp>
-#include <opencv2/imgproc/imgproc.hpp>
-#include <iostream>
-#include <string>
-#include <fstream>
+#include "Steg.h"
 
 int main(int argc, char** argv)
 {
@@ -21,10 +16,54 @@ int main(int argc, char** argv)
 		return -1;
 	}
 
-	// Read JPEG matrix from file
-	cv::Mat jpeg_mat(8, 8, CV_8U);
+	// Define final matrix
+	cv::Mat i_image = image.clone();
+	cv::Mat dct_image = image.clone();
 
-	std::string filename("mat.dat");
+	// Read JPEG matrix from file
+	cv::Mat jpeg_mat = readMatrixFromFile("mat.dat");
+
+	// In OpenCV coordinate follow the same rules as matrix, then x height and y width
+	// Take a 8x8 block, dct, round to nearest integer, and get the value of the (2,2)
+
+	// Count values
+	std::map<int32_t, uint32_t> coeff_count = std::map<int32_t, uint32_t>();
+
+	// Get dct blocks
+	for(int i = 0; i < image.size().width; i+=8)
+		for (int j = 0; j < image.size().height; j+=8)
+		{
+			// Get dct 8x8 block
+			cv::Mat out_block = getDctBlock(image, i, j, jpeg_mat);
+
+			// Print block values
+			int16_t intensity = out_block.at<int32_t>(1, 1);
+			//std::cout << "Value at (" << (j + 2) << ", " << (i + 2) << ") is " << std::to_string(intensity) << "\n";
+
+			// Increase count values
+			if (coeff_count.find(intensity) != coeff_count.end())
+				coeff_count.at(intensity) = coeff_count.at(intensity) + 1;
+			else
+				coeff_count.insert(std::pair<int32_t, uint32_t>(intensity, 1));
+
+			// Get the inverse
+			//cv::Mat i_block = getiDctBlock(out_block, i, j, jpeg_mat);
+
+			//i_block.copyTo(i_image(cv::Rect(i, j, 8, 8)));
+		}
+
+	cv::namedWindow("Display window", cv::WINDOW_AUTOSIZE);// Create a window for display.
+	cv::imshow("Display window", i_image);                   // Show our image inside it.
+
+	cv::waitKey(0);                        // Wait for a keystroke in the window
+
+	return 0;
+}
+
+cv::Mat readMatrixFromFile(std::string filename)
+{
+	cv::Mat jpeg_mat(8, 8, CV_8S);
+
 	std::fstream myfile;
 	myfile = std::fstream(filename, std::ios::in);
 
@@ -39,11 +78,11 @@ int main(int argc, char** argv)
 			char chr = line.at(i);
 			if (chr != 32)
 				num.push_back(chr);
-			else if(!num.empty())
+			else if (!num.empty())
 			{
 				// Set coefficient to matrix
-				uint8_t coefficient = std::stoi(num);
-				jpeg_mat.at<uint8_t>(row_counter, col_counter) = coefficient;
+				int8_t coefficient = std::stoi(num);
+				jpeg_mat.at<int8_t>(row_counter, col_counter) = coefficient;
 
 				// Update values
 				col_counter++;
@@ -52,10 +91,10 @@ int main(int argc, char** argv)
 		}
 
 		// Set coefficient to matrix
-		uint8_t coefficient; 
-		if(!num.empty())
+		int8_t coefficient;
+		if (!num.empty())
 			coefficient = std::stoi(num);
-		jpeg_mat.at<uint8_t>(row_counter, col_counter) = coefficient;
+		jpeg_mat.at<int8_t>(row_counter, col_counter) = coefficient;
 
 		// Update values
 		col_counter = 0;
@@ -63,52 +102,79 @@ int main(int argc, char** argv)
 		row_counter++;
 	}
 
-	// In OpenCV coordinate follow the same rules as matrix, then x height and y width
-	// Take a 8x8 block, dct, round to nearest integer, and get the value of the (2,2)
+	return jpeg_mat;
+}
 
-	// Create and image clone
+cv::Mat getDctBlock(cv::Mat image, uint32_t x, uint32_t y, cv::Mat jpeg_mat)
+{
 	cv::Mat dctImage = image.clone();
 
-	for(int i = 0; i < image.size().width; i+=8)
-		for (int j = 0; j < image.size().height; j+=8)
+	// Get 8x8 block from image
+	cv::Mat block = dctImage(cv::Rect(x, y, 8, 8));
+
+	// Apply -128 to every value in block
+	/*for (int u = 0; u < 8; u++)
+		for (int v = 0; v < 8; v++)
 		{
-			// Get 8x8 block from image
-			cv::Mat block = dctImage(cv::Rect(i, j, 8, 8));
-
-			// Apply -128 to every value in block
-			for(int u = 0; u < 8; u++)
-				for (int v = 0; v < 8; v++)
-				{
-					unsigned char value = block.at<unsigned char>(u, v);
-					block.at<unsigned char>(u, v) = value - 128;
-				}
-			// Previous conversions
-			block.convertTo(block, CV_32F);
-			
-			// Dct
-			cv::Mat out_block(8, 8, CV_8U);
-			dct(block, block);
-
-			// Quantize the values using the JPEG matrix jpeg_qtable.m
-			for (int u = 0; u < 8; u++)
-				for (int v = 0; v < 8; v++)
-				{
-					float value = block.at<float>(u, v);
-					uint8_t coefficient = jpeg_mat.at<uint8_t>(u, v);
-					uint8_t result = value / coefficient;
-					out_block.at<uint8_t>(u, v) = result;
-				}
-
-			// Print block values
-			cv::Scalar intensity = out_block.at<uint8_t>(2, 2);
-			float iValue = intensity.val[0];
-			std::cout << "Value at (" << (j + 2) << ", " << (i + 2) << ") is " << std::to_string(iValue) << "\n";
+			unsigned char value = block.at<unsigned char>(u, v);
+			block.at<unsigned char>(u, v) = value - 128;
 		}
+*/
+	// Previous conversions
+	block.convertTo(block, CV_32F);
 
-	cv::namedWindow("Display window", cv::WINDOW_AUTOSIZE);// Create a window for display.
-	cv::imshow("Display window", image);                   // Show our image inside it.
+	// Dct
+	cv::Mat out_block(8, 8, CV_32S);
+	dct(block, block);
+	block.convertTo(out_block, CV_32S);
 
-	cv::waitKey(0);                        // Wait for a keystroke in the window
+	// Quantize the values using the JPEG matrix jpeg_qtable.m
+	/*for (int u = 0; u < 8; u++)
+		for (int v = 0; v < 8; v++)
+		{
+			float value = block.at<float>(u, v);
+			int8_t coefficient = jpeg_mat.at<int8_t>(u, v);
+			int16_t result = value / coefficient;
+			out_block.at<int16_t>(u, v) = result;
+		}	*/
+		
+	return out_block;
+}
 
-	return 0;
+cv::Mat getiDctBlock(cv::Mat dctblock, uint32_t x, uint32_t y, cv::Mat jpeg_mat)
+{
+	// Work with a copy
+	cv::Mat block = dctblock.clone();
+
+	// Declare dct block
+	cv::Mat dq_block(8, 8, CV_32S);
+
+	// Undo quantization
+	/*for (int u = 0; u < 8; u++)
+		for (int v = 0; v < 8; v++)
+		{
+			int16_t value = block.at<int16_t>(u, v);
+			int8_t coefficient = jpeg_mat.at<int8_t>(u, v);
+			int16_t result = value * coefficient;
+			dq_block.at<int16_t>(u, v) = result;
+		}
+	*/
+
+	// Idct proccess
+	cv::Mat out_block(8, 8, CV_32S);
+
+	block.convertTo(block, CV_32F);
+	dct(block, out_block, cv::DCT_INVERSE);
+	out_block.convertTo(out_block, CV_32S);
+
+	// Apply -128 to every value in block
+	/*for (int u = 0; u < 8; u++)
+		for (int v = 0; v < 8; v++)
+		{
+			unsigned char value = out_block.at<unsigned char>(u, v);
+			out_block.at<unsigned char>(u, v) = value + 128;
+		}
+	*/
+
+	return out_block;
 }
