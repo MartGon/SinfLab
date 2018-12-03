@@ -20,6 +20,8 @@ cv::Mat getDctImage(cv::Mat image);
 
 cv::Mat getJSTEGImage(cv::Mat dctImage, std::vector<bool>& data, std::map<int32_t, uint32_t>& coeff_count);
 
+cv::Mat getF3Image(cv::Mat dctImage, std::vector<bool>& data, std::map<int32_t, uint32_t>& coeff_count);
+
 cv::Mat getIDctImage(cv::Mat dctImage);
 
 std::vector<bool> getDataFromTamperedImage(cv::Mat tImage, std::map<int32_t, uint32_t>& coeff_count);

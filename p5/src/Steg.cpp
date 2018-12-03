@@ -57,7 +57,7 @@ int main(int argc, char** argv)
 		// Open output file
 	std::fstream out_file_tam("histogram_tam.dat", std::ios::out);
 	writeHistogramFile(out_file_tam, new_coeff_count);
-	out_file.close();
+	out_file_tam.close();
 
 	cv::waitKey(0);                        // Wait for a keystroke in the window
 
@@ -181,7 +181,7 @@ cv::Mat getJSTEGImage(cv::Mat dctImage, std::vector<bool>& data, std::map<int32_
 				coeff_count.insert(std::pair<int32_t, uint32_t>(coeff, 1));
 			
 			// Set new data
-			if (coeff != 0 && coeff != 1);
+			if (coeff != 0 && coeff != 1)
 			{
 				// Generate data
 				bool bit = bernuolli(std::random_device());
@@ -200,6 +200,53 @@ cv::Mat getJSTEGImage(cv::Mat dctImage, std::vector<bool>& data, std::map<int32_
 		}
 
 	return jsteg_image;
+}
+
+cv::Mat getF3Image(cv::Mat dctImage, std::vector<bool>& data, std::map<int32_t, uint32_t>& coeff_count)
+{
+	cv::Mat f3_image(dctImage.rows, dctImage.cols, CV_32S);
+
+	std::bernoulli_distribution bernuolli(0.5);
+
+	for (int i = 0; i < dctImage.size().width; i += 8)
+		for (int j = 0; j < dctImage.size().height; j += 8)
+		{
+			// Get 8x8 block
+			cv::Mat block = dctImage(cv::Rect(i, j, 8, 8));
+
+			// Get (2, 2) coefficient
+			int16_t coeff = block.at<int32_t>(2, 2);
+
+			// Increase count values
+			if (coeff_count.find(coeff) != coeff_count.end())
+				coeff_count.at(coeff) = coeff_count.at(coeff) + 1;
+			else
+				coeff_count.insert(std::pair<int32_t, uint32_t>(coeff, 1));
+
+			// Set new data
+			if (coeff != 0)
+			{
+				// Generate data
+				//bool bit = bernuolli(std::random_device());
+				bool bit = false;
+
+				// Check current coeff
+				bool coeff_lsb = coeff & (int16_t)1;
+				int16_t t_coeff = 0;
+
+				if (bit != coeff_lsb)
+					t_coeff = coeff > 0 ? coeff - 1 : coeff + 1;
+
+				// Set new coeff
+				block.at<int32_t>(2, 2) = t_coeff;
+				data.push_back(bit);
+
+				// Set new block
+				block.copyTo(f3_image(cv::Rect(i, j, 8, 8)));
+			}
+		}
+
+	return f3_image;
 }
 
 cv::Mat getIDctImage(cv::Mat dctImage)
@@ -244,18 +291,10 @@ std::vector<bool> getDataFromTamperedImage(cv::Mat tImage, std::map<int32_t, uin
 			else
 				coeff_count.insert(std::pair<int32_t, uint32_t>(coeff, 1));
 
-			// Set new data
-			if (coeff != 0 && coeff != 1);
+			if (coeff != 0 && coeff != 1)
 			{
 				// Get data
 				bool bit = coeff & 1;
-
-				// Calculate new coeff
-				int16_t prev = (coeff & (UINT16_MAX - 1));
-				int16_t t_coeff = (coeff & (UINT16_MAX - 1)) | bit;
-
-				// Set new coeff
-				block.at<int32_t>(2, 2) = t_coeff;
 				hidden_data.push_back(bit);
 			}
 		}
