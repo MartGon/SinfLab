@@ -28,7 +28,7 @@ int main(int argc, char** argv)
 	cv::Mat dctImage = getDctImage(image);   
 
 	// JSTEG the dct image
-	cv::Mat jstegImage = getF3Image(dctImage, generated_data);
+	cv::Mat jstegImage = getF3Image(dctImage, generated_data,true);
 
 	// Get tampered image
 	cv::Mat idctImage = getIDctImage(jstegImage);
@@ -45,14 +45,14 @@ int main(int argc, char** argv)
 
 	// Write to file for gnuplot
 		// Open output file
-	new_coeff_count = getCoeffMap<float>(jstegImage);
+	new_coeff_count = getCoeffMap(jstegImage, true);
 	std::fstream out_file_tam("histogram_tam.dat", std::ios::out);
 	writeHistogramFile(out_file_tam, new_coeff_count);
 	out_file_tam.close();
 
 	// Write to file for gnuplot
 		// Open output file
-	coeff_count = getCoeffMap<float>(dctImage);
+	coeff_count = getCoeffMap(dctImage, true);
 	std::fstream out_file("histogram.dat", std::ios::out);
 	writeHistogramFile(out_file, coeff_count);
 	out_file.close();
@@ -182,7 +182,7 @@ cv::Mat getIDctImage(cv::Mat dctImage)
 	return idctImage;
 }
 
-cv::Mat getJSTEGImage(cv::Mat dctImage, std::vector<bool>& data)
+cv::Mat getJSTEGImage(cv::Mat dctImage, std::vector<bool>& data, bool everyCoeff)
 {
 	cv::Mat jsteg_image = dctImage.clone();
 
@@ -197,8 +197,9 @@ cv::Mat getJSTEGImage(cv::Mat dctImage, std::vector<bool>& data)
 			for(int u = 0; u < 8; u++)
 				for (int v = 0; v < 8; v++)
 				{
-					if (!(u == 2 && v == 2))
-						continue;
+					if(!everyCoeff)
+						if (!(u == 2 && v == 2))
+							continue;
 
 					// Get (2, 2) coefficient
 					float fCoeff = block.at<float>(u, v);
@@ -228,7 +229,7 @@ cv::Mat getJSTEGImage(cv::Mat dctImage, std::vector<bool>& data)
 	return jsteg_image;
 }
 
-cv::Mat getF3Image(cv::Mat dctImage, std::vector<bool>& data)
+cv::Mat getF3Image(cv::Mat dctImage, std::vector<bool>& data, bool everyCoeff)
 {
 	cv::Mat f3_image = dctImage.clone();
 
@@ -240,32 +241,67 @@ cv::Mat getF3Image(cv::Mat dctImage, std::vector<bool>& data)
 			// Get 8x8 block
 			cv::Mat block = f3_image(cv::Rect(i, j, 8, 8));
 
-			// Get (2, 2) coefficient
-			int16_t coeff = std::round(block.at<float>(2, 2));
+			for (int u = 0; u < 8; u++)
+				for (int v = 0; v < 8; v++)
+				{
+					if (!everyCoeff)
+						if (!(u == 2 && v == 2))
+							continue;
 
-			// Set new data
-			if (coeff != 0)
-			{
-				// Generate data
-				bool bit = bernuolli(std::random_device());
+					// Get (2, 2) coefficient
+					int16_t coeff = std::round(block.at<float>(u, v));
 
-				// Check current coeff
-				bool coeff_lsb = coeff & (int16_t)1;
-				int16_t t_coeff = coeff;
+					// Set new data
+					if (coeff != 0)
+					{
+						// Generate data
+						bool bit = bernuolli(std::random_device());
 
-				if (bit != coeff_lsb)
-					t_coeff = coeff > 0 ? (coeff - 1) : (coeff + 1);
+						// Check current coeff
+						bool coeff_lsb = coeff & (int16_t)1;
+						int16_t t_coeff = coeff;
 
-				// Set new coeff
-				block.at<float>(2, 2) = t_coeff;
-				data.push_back(bit);
-			}
+						if (bit != coeff_lsb)
+							t_coeff = coeff > 0 ? (coeff - 1) : (coeff + 1);
 
-			// Set new block
-			//block.copyTo(f3_image(cv::Rect(i, j, 8, 8)));
+						// Set new coeff
+						block.at<float>(u, v) = t_coeff;
+						data.push_back(bit);
+					}
+				}
 		}
 
 	return f3_image;
+}
+
+std::map<int32_t, uint32_t> getCoeffMap(const cv::Mat & dctImage, bool everyCoeff)
+{
+	std::map<int32_t, uint32_t> coeff_count;
+
+	for (int i = 0; i < dctImage.size().width; i += 8)
+		for (int j = 0; j < dctImage.size().height; j += 8)
+		{
+			// Get 8x8 block
+			cv::Mat block = dctImage(cv::Rect(i, j, 8, 8));
+			for (int u = 0; u < 8; u++)
+				for (int v = 0; v < 8; v++)
+				{
+					if (!everyCoeff)
+						if (!(u == 2 && v == 2))
+							continue;
+
+					// Get (2, 2) coefficient
+					int16_t coeff = std::round(block.at<float>(u, v));
+
+					// Increase count values
+					if (coeff_count.find(coeff) != coeff_count.end())
+						coeff_count.at(coeff) = coeff_count.at(coeff) + 1;
+					else
+						coeff_count.insert(std::pair<int32_t, uint32_t>(coeff, 1));
+				}
+		}
+
+	return coeff_count;
 }
 
 std::vector<bool> getDataFromTamperedImage(cv::Mat tImage)

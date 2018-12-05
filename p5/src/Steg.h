@@ -20,34 +20,11 @@ cv::Mat getDctImage(cv::Mat image);
 
 cv::Mat getIDctImage(cv::Mat dctImage);
 
-cv::Mat getJSTEGImage(cv::Mat dctImage, std::vector<bool>& data);
+cv::Mat getJSTEGImage(cv::Mat dctImage, std::vector<bool>& data, bool everyCoeff = false);
 
-cv::Mat getF3Image(cv::Mat dctImage, std::vector<bool>& data);
+cv::Mat getF3Image(cv::Mat dctImage, std::vector<bool>& data, bool everyCoeff = false);
 
-template <typename T>
-std::map<int32_t, uint32_t> getCoeffMap(const cv::Mat& dctImage)
-{
-	std::map<int32_t, uint32_t> coeff_count;
-
-	for (int i = 0; i < dctImage.size().width; i += 8)
-		for (int j = 0; j < dctImage.size().height; j += 8)
-		{
-			// Get 8x8 block
-			cv::Mat block = dctImage(cv::Rect(i, j, 8, 8));
-
-			// Get (2, 2) coefficient
-			T coeff = std::round(block.at<T>(2, 2));
-
-			// Increase count values
-			if (coeff_count.find(coeff) != coeff_count.end())
-				coeff_count.at(coeff) = coeff_count.at(coeff) + 1;
-			else
-				coeff_count.insert(std::pair<int32_t, uint32_t>(coeff, 1));
-		}
-
-	return coeff_count;
-}
-
+std::map<int32_t, uint32_t> getCoeffMap(const cv::Mat& dctImage, bool everyCoeff = false);
 
 std::vector<bool> getDataFromTamperedImage(cv::Mat tImage);
 
