@@ -25,43 +25,45 @@ int main(int argc, char** argv)
 	std::vector<bool> generated_data;
 
 	// Get dct Image
-	cv::Mat dctImage = getDctImage(image);
+	cv::Mat dctImage = getDctImage(image);   
 
 	// JSTEG the dct image
-	cv::Mat jstegImage = getJSTEGImage(dctImage, generated_data, coeff_count);
+	cv::Mat jstegImage = getF3Image(dctImage, generated_data);
 
 	// Get tampered image
-	cv::Mat idctImage = getIDctImage(dctImage);
+	cv::Mat idctImage = getIDctImage(jstegImage);
+
+	// Print generated data
+	printData(generated_data);
+	std::cout << std::endl;
+
+	// Recover data
+	std::vector<bool> hidden_data = getDataFromTamperedImage(jstegImage);
+
+	// Print hidden data
+	printData(hidden_data);
 
 	// Write to file for gnuplot
 		// Open output file
+	new_coeff_count = getCoeffMap<float>(jstegImage);
+	std::fstream out_file_tam("histogram_tam.dat", std::ios::out);
+	writeHistogramFile(out_file_tam, new_coeff_count);
+	out_file_tam.close();
+
+	// Write to file for gnuplot
+		// Open output file
+	coeff_count = getCoeffMap<float>(dctImage);
 	std::fstream out_file("histogram.dat", std::ios::out);
 	writeHistogramFile(out_file, coeff_count);
 	out_file.close();
 
 	// Show image
-	cv::namedWindow("Display window", cv::WINDOW_AUTOSIZE);// Create a window for display.
-	cv::imshow("Display window", idctImage);                   // Show our image inside it.
+	//cv::namedWindow("Display window", cv::WINDOW_AUTOSIZE);// Create a window for display.
+	//cv::imshow("Display window", idctImage);                   // Show our image inside it.
 
-	// Print hidden data
-	printData(generated_data);
+	//cv::waitKey(0);                        // Wait for a keystroke in the window
 
-	// Recover data
-	std::vector<bool> hidden_data = getDataFromTamperedImage(idctImage, new_coeff_count);
-
-	std::cout << std::endl;
-
-	printData(hidden_data);
-
-	// Write to file for gnuplot
-		// Open output file
-	std::fstream out_file_tam("histogram_tam.dat", std::ios::out);
-	writeHistogramFile(out_file_tam, new_coeff_count);
-	out_file_tam.close();
-
-	cv::waitKey(0);                        // Wait for a keystroke in the window
-
-	return 0;
+	return 10;
 }
 
 cv::Mat readMatrixFromFile(std::string filename)
@@ -111,14 +113,14 @@ cv::Mat readMatrixFromFile(std::string filename)
 
 cv::Mat getDctBlock(cv::Mat block)
 {
-	cv::Mat out_block(8, 8, CV_32S);
+	cv::Mat cBlock = block.clone();
+	cv::Mat out_block;
 
 	// Previous conversions
-	block.convertTo(out_block, CV_32F);
+	cBlock.convertTo(cBlock, CV_32F);
 
 	// Dct
-	dct(out_block, out_block);
-	out_block.convertTo(out_block, CV_32S);
+	dct(cBlock, out_block);
 		
 	return out_block;
 }
@@ -129,11 +131,10 @@ cv::Mat getiDctBlock(cv::Mat dctblock)
 	cv::Mat block = dctblock.clone();
 
 	// Idct proccess
-	cv::Mat out_block(8, 8, CV_32S);
+	cv::Mat out_block;
 
-	block.convertTo(block, CV_32F);
 	dct(block, out_block, cv::DCT_INVERSE);
-	out_block.convertTo(out_block, CV_32S);
+	out_block.convertTo(out_block, CV_8U);
 
 	return out_block;
 }
@@ -141,7 +142,8 @@ cv::Mat getiDctBlock(cv::Mat dctblock)
 cv::Mat getDctImage(cv::Mat image)
 {
 	//Clonar
-	cv::Mat dct_image(image.rows, image.cols, CV_32S);
+	cv::Mat dct_image = image.clone();
+	dct_image.convertTo(dct_image, CV_32F);
 
 	for (int i = 0; i < image.size().width; i += 8)
 		for (int j = 0; j < image.size().height; j += 8)
@@ -159,99 +161,10 @@ cv::Mat getDctImage(cv::Mat image)
 	return dct_image;
 }
 
-cv::Mat getJSTEGImage(cv::Mat dctImage, std::vector<bool>& data, std::map<int32_t, uint32_t>& coeff_count)
-{
-	cv::Mat jsteg_image(dctImage.rows, dctImage.cols, CV_32S);
-
-	std::bernoulli_distribution bernuolli(0.5);
-
-	for (int i = 0; i < dctImage.size().width; i += 8)
-		for (int j = 0; j < dctImage.size().height; j += 8)
-		{
-			// Get 8x8 block
-			cv::Mat block = dctImage(cv::Rect(i, j, 8, 8));
-
-			// Get (2, 2) coefficient
-			int16_t coeff = block.at<int32_t>(2, 2);
-			
-			// Increase count values
-			if (coeff_count.find(coeff) != coeff_count.end())
-				coeff_count.at(coeff) = coeff_count.at(coeff) + 1;
-			else
-				coeff_count.insert(std::pair<int32_t, uint32_t>(coeff, 1));
-			
-			// Set new data
-			if (coeff != 0 && coeff != 1)
-			{
-				// Generate data
-				bool bit = bernuolli(std::random_device());
-
-				// Calculate new coeff
-				int16_t prev = (coeff & (UINT16_MAX - 1));
-				int16_t t_coeff = (coeff & (UINT16_MAX - 1)) | bit;
-
-				// Set new coeff
-				block.at<int32_t>(2, 2) = t_coeff;
-				data.push_back(bit);
-
-				// Set new block
-				block.copyTo(jsteg_image(cv::Rect(i, j, 8, 8)));
-			}
-		}
-
-	return jsteg_image;
-}
-
-cv::Mat getF3Image(cv::Mat dctImage, std::vector<bool>& data, std::map<int32_t, uint32_t>& coeff_count)
-{
-	cv::Mat f3_image(dctImage.rows, dctImage.cols, CV_32S);
-
-	std::bernoulli_distribution bernuolli(0.5);
-
-	for (int i = 0; i < dctImage.size().width; i += 8)
-		for (int j = 0; j < dctImage.size().height; j += 8)
-		{
-			// Get 8x8 block
-			cv::Mat block = dctImage(cv::Rect(i, j, 8, 8));
-
-			// Get (2, 2) coefficient
-			int16_t coeff = block.at<int32_t>(2, 2);
-
-			// Increase count values
-			if (coeff_count.find(coeff) != coeff_count.end())
-				coeff_count.at(coeff) = coeff_count.at(coeff) + 1;
-			else
-				coeff_count.insert(std::pair<int32_t, uint32_t>(coeff, 1));
-
-			// Set new data
-			if (coeff != 0)
-			{
-				// Generate data
-				//bool bit = bernuolli(std::random_device());
-				bool bit = false;
-
-				// Check current coeff
-				bool coeff_lsb = coeff & (int16_t)1;
-				int16_t t_coeff = 0;
-
-				if (bit != coeff_lsb)
-					t_coeff = coeff > 0 ? coeff - 1 : coeff + 1;
-
-				// Set new coeff
-				block.at<int32_t>(2, 2) = t_coeff;
-				data.push_back(bit);
-
-				// Set new block
-				block.copyTo(f3_image(cv::Rect(i, j, 8, 8)));
-			}
-		}
-
-	return f3_image;
-}
-
 cv::Mat getIDctImage(cv::Mat dctImage)
 {
-	cv::Mat idctImage(dctImage.rows, dctImage.cols, CV_32S);
+	cv::Mat idctImage = dctImage.clone();
+	idctImage.convertTo(idctImage, CV_8U);
 
 	for (int i = 0; i < dctImage.size().width; i += 8)
 		for (int j = 0; j < dctImage.size().height; j += 8)
@@ -266,37 +179,123 @@ cv::Mat getIDctImage(cv::Mat dctImage)
 			i_block.copyTo(idctImage(cv::Rect(i, j, 8, 8)));
 		}
 
-	idctImage.convertTo(idctImage, CV_8U);
 	return idctImage;
 }
 
-std::vector<bool> getDataFromTamperedImage(cv::Mat tImage, std::map<int32_t, uint32_t>& coeff_count)
+cv::Mat getJSTEGImage(cv::Mat dctImage, std::vector<bool>& data)
+{
+	cv::Mat jsteg_image = dctImage.clone();
+
+	std::bernoulli_distribution bernuolli(0.5);
+
+	for (int i = 0; i < jsteg_image.size().width; i += 8)
+		for (int j = 0; j < jsteg_image.size().height; j += 8)
+		{
+			// Get 8x8 block
+			cv::Mat block = jsteg_image(cv::Rect(i, j, 8, 8));
+
+			for(int u = 0; u < 8; u++)
+				for (int v = 0; v < 8; v++)
+				{
+					if (!(u == 2 && v == 2))
+						continue;
+
+					// Get (2, 2) coefficient
+					float fCoeff = block.at<float>(u, v);
+					int16_t coeff = std::round(fCoeff);
+
+					// Set new data
+					if (coeff != 0 && coeff != 1)
+					{
+						// Generate data
+						bool bit = bernuolli(std::random_device());
+						//bit = false;
+
+						// Calculate new coeff
+						int16_t prev = (coeff & (UINT16_MAX - 1));
+						int16_t t_coeff = (coeff & (UINT16_MAX - 1)) | bit;
+
+						// Set new coeff
+						block.at<float>(u, v) = t_coeff;
+						data.push_back(bit);
+					}
+
+					// Set new block
+					//block.copyTo(jsteg_image(cv::Rect(i, j, 8, 8)));
+				}
+		}
+
+	return jsteg_image;
+}
+
+cv::Mat getF3Image(cv::Mat dctImage, std::vector<bool>& data)
+{
+	cv::Mat f3_image = dctImage.clone();
+
+	std::bernoulli_distribution bernuolli(0.5);
+
+	for (int i = 0; i < f3_image.size().width; i += 8)
+		for (int j = 0; j < f3_image.size().height; j += 8)
+		{
+			// Get 8x8 block
+			cv::Mat block = f3_image(cv::Rect(i, j, 8, 8));
+
+			// Get (2, 2) coefficient
+			int16_t coeff = std::round(block.at<float>(2, 2));
+
+			// Set new data
+			if (coeff != 0)
+			{
+				// Generate data
+				bool bit = bernuolli(std::random_device());
+
+				// Check current coeff
+				bool coeff_lsb = coeff & (int16_t)1;
+				int16_t t_coeff = coeff;
+
+				if (bit != coeff_lsb)
+					t_coeff = coeff > 0 ? (coeff - 1) : (coeff + 1);
+
+				// Set new coeff
+				block.at<float>(2, 2) = t_coeff;
+				data.push_back(bit);
+			}
+
+			// Set new block
+			//block.copyTo(f3_image(cv::Rect(i, j, 8, 8)));
+		}
+
+	return f3_image;
+}
+
+std::vector<bool> getDataFromTamperedImage(cv::Mat tImage)
 {
 	std::vector<bool> hidden_data;
 
 	cv::Mat dctImage = getDctImage(tImage);
+	//dctImage = tImage;
 
 	for (int i = 0; i < dctImage.size().width; i += 8)
 		for (int j = 0; j < dctImage.size().height; j += 8)
 		{
 			// Get 8x8 block
 			cv::Mat block = dctImage(cv::Rect(i, j, 8, 8));
+			for (int u = 0; u < 8; u++)
+				for (int v = 0; v < 8; v++)
+				{
+					if (!(u == 2 && v == 2))
+						continue;
 
-			// Get (2, 2) coefficient
-			int16_t coeff = block.at<int32_t>(2, 2);
+					// Get (2, 2) coefficient
+					int16_t coeff = std::round(block.at<float>(u, v));
 
-			// Increase count values
-			if (coeff_count.find(coeff) != coeff_count.end())
-				coeff_count.at(coeff) = coeff_count.at(coeff) + 1;
-			else
-				coeff_count.insert(std::pair<int32_t, uint32_t>(coeff, 1));
-
-			if (coeff != 0 && coeff != 1)
-			{
-				// Get data
-				bool bit = coeff & 1;
-				hidden_data.push_back(bit);
-			}
+					if (coeff != 0 && coeff != 1)
+					{
+						// Get data
+						bool bit = coeff & 1;
+						hidden_data.push_back(bit);
+					}
+				}
 		}
 
 	return hidden_data;
