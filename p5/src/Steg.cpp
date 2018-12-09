@@ -16,52 +16,27 @@ int main(int argc, char** argv)
 		return -1;
 	}
 
-	// In OpenCV coordinate follow the same rules as matrix, then x height and y width
+	// In OpenCV coordinates follow the same rules as matrix, then x height and y width
 	// Take a 8x8 block, dct, round to nearest integer, and get the value of the (2,2)
 
 	// Count values
-	std::map<int32_t, uint32_t> coeff_count = std::map<int32_t, uint32_t>();
-	std::map<int32_t, uint32_t> new_coeff_count = std::map<int32_t, uint32_t>();
-	std::vector<bool> generated_data;
+	std::map<float, uint32_t> coeff_count = std::map<float, uint32_t>();
 
 	// Get dct Image
 	cv::Mat dctImage = getDctImage(image);   
 
-	// JSTEG the dct image
-	cv::Mat jstegImage = getF3Image(dctImage, generated_data,true);
-
-	// Get tampered image
-	cv::Mat idctImage = getIDctImage(jstegImage);
-
-	// Print generated data
-	printData(generated_data);
-	std::cout << std::endl;
-
-	// Recover data
-	std::vector<bool> hidden_data = getDataFromTamperedImage(jstegImage);
-
-	// Print hidden data
-	printData(hidden_data);
-
 	// Write to file for gnuplot
 		// Open output file
-	new_coeff_count = getCoeffMap(jstegImage, true);
-	std::fstream out_file_tam("histogram_tam.dat", std::ios::out);
-	writeHistogramFile(out_file_tam, new_coeff_count);
-	out_file_tam.close();
-
-	// Write to file for gnuplot
-		// Open output file
-	coeff_count = getCoeffMap(dctImage, true);
+	coeff_count = getCoeffMap<float>(dctImage);
 	std::fstream out_file("histogram.dat", std::ios::out);
-	writeHistogramFile(out_file, coeff_count);
+	for (auto const& key : coeff_count)
+	{
+		out_file << key.first << " " << key.second << std::endl;
+	}
 	out_file.close();
 
-	// Show image
-	//cv::namedWindow("Display window", cv::WINDOW_AUTOSIZE);// Create a window for display.
-	//cv::imshow("Display window", idctImage);                   // Show our image inside it.
+	// Save image
 
-	//cv::waitKey(0);                        // Wait for a keystroke in the window
 
 	return 10;
 }
@@ -272,36 +247,6 @@ cv::Mat getF3Image(cv::Mat dctImage, std::vector<bool>& data, bool everyCoeff)
 		}
 
 	return f3_image;
-}
-
-std::map<int32_t, uint32_t> getCoeffMap(const cv::Mat & dctImage, bool everyCoeff)
-{
-	std::map<int32_t, uint32_t> coeff_count;
-
-	for (int i = 0; i < dctImage.size().width; i += 8)
-		for (int j = 0; j < dctImage.size().height; j += 8)
-		{
-			// Get 8x8 block
-			cv::Mat block = dctImage(cv::Rect(i, j, 8, 8));
-			for (int u = 0; u < 8; u++)
-				for (int v = 0; v < 8; v++)
-				{
-					if (!everyCoeff)
-						if (!(u == 2 && v == 2))
-							continue;
-
-					// Get (2, 2) coefficient
-					int16_t coeff = std::round(block.at<float>(u, v));
-
-					// Increase count values
-					if (coeff_count.find(coeff) != coeff_count.end())
-						coeff_count.at(coeff) = coeff_count.at(coeff) + 1;
-					else
-						coeff_count.insert(std::pair<int32_t, uint32_t>(coeff, 1));
-				}
-		}
-
-	return coeff_count;
 }
 
 std::vector<bool> getDataFromTamperedImage(cv::Mat tImage)
