@@ -28,7 +28,7 @@ int main(int argc, char** argv)
 	cv::Mat dctImage = getDctImage(image);   
 
 	// JSTEG the dct image
-	cv::Mat jstegImage = getF3Image(dctImage, generated_data,true);
+	cv::Mat jstegImage = getF3Image(dctImage, generated_data, false);
 
 	// Get tampered image
 	cv::Mat idctImage = getIDctImage(jstegImage);
@@ -38,21 +38,21 @@ int main(int argc, char** argv)
 	std::cout << std::endl;
 
 	// Recover data
-	std::vector<bool> hidden_data = getDataFromTamperedImage(jstegImage);
+	std::vector<bool> hidden_data = getDataFromTamperedImage(jstegImage, false, true);
 
 	// Print hidden data
 	printData(hidden_data);
 
 	// Write to file for gnuplot
 		// Open output file
-	new_coeff_count = getCoeffMap(jstegImage, true);
+	new_coeff_count = getCoeffMap(jstegImage, false);
 	std::fstream out_file_tam("histogram_tam.dat", std::ios::out);
 	writeHistogramFile(out_file_tam, new_coeff_count);
 	out_file_tam.close();
 
 	// Write to file for gnuplot
 		// Open output file
-	coeff_count = getCoeffMap(dctImage, true);
+	coeff_count = getCoeffMap(dctImage, false);
 	std::fstream out_file("histogram.dat", std::ios::out);
 	writeHistogramFile(out_file, coeff_count);
 	out_file.close();
@@ -185,7 +185,6 @@ cv::Mat getIDctImage(cv::Mat dctImage)
 cv::Mat getJSTEGImage(cv::Mat dctImage, std::vector<bool>& data, bool everyCoeff)
 {
 	cv::Mat jsteg_image = dctImage.clone();
-
 	std::bernoulli_distribution bernuolli(0.5);
 
 	for (int i = 0; i < jsteg_image.size().width; i += 8)
@@ -197,11 +196,16 @@ cv::Mat getJSTEGImage(cv::Mat dctImage, std::vector<bool>& data, bool everyCoeff
 			for(int u = 0; u < 8; u++)
 				for (int v = 0; v < 8; v++)
 				{
-					if(!everyCoeff)
+					// Never edit the first coefficient
+					if (u == 0 && v == 0)
+						continue;
+
+					// Skip other coefficients than 2, 2 if everyCoeff is false
+					if (!everyCoeff)
 						if (!(u == 2 && v == 2))
 							continue;
 
-					// Get (2, 2) coefficient
+					// Get DCT coefficient
 					float fCoeff = block.at<float>(u, v);
 					int16_t coeff = std::round(fCoeff);
 
@@ -210,7 +214,6 @@ cv::Mat getJSTEGImage(cv::Mat dctImage, std::vector<bool>& data, bool everyCoeff
 					{
 						// Generate data
 						bool bit = bernuolli(std::random_device());
-						//bit = false;
 
 						// Calculate new coeff
 						int16_t prev = (coeff & (UINT16_MAX - 1));
@@ -220,21 +223,18 @@ cv::Mat getJSTEGImage(cv::Mat dctImage, std::vector<bool>& data, bool everyCoeff
 						block.at<float>(u, v) = t_coeff;
 						data.push_back(bit);
 					}
-
-					// Set new block
-					//block.copyTo(jsteg_image(cv::Rect(i, j, 8, 8)));
 				}
 		}
-
 	return jsteg_image;
 }
 
 cv::Mat getF3Image(cv::Mat dctImage, std::vector<bool>& data, bool everyCoeff)
 {
 	cv::Mat f3_image = dctImage.clone();
-
 	std::bernoulli_distribution bernuolli(0.5);
 
+	bool reinsert = 0;
+	bool bit = 0;
 	for (int i = 0; i < f3_image.size().width; i += 8)
 		for (int j = 0; j < f3_image.size().height; j += 8)
 		{
@@ -244,33 +244,50 @@ cv::Mat getF3Image(cv::Mat dctImage, std::vector<bool>& data, bool everyCoeff)
 			for (int u = 0; u < 8; u++)
 				for (int v = 0; v < 8; v++)
 				{
+					// Never edit the first coefficient
+					if (u == 0 && v == 0)
+						continue;
+
+					// Skip other coefficients than 2, 2 if everyCoeff is false
 					if (!everyCoeff)
 						if (!(u == 2 && v == 2))
 							continue;
 
-					// Get (2, 2) coefficient
+					// Get DCT coefficient
 					int16_t coeff = std::round(block.at<float>(u, v));
 
 					// Set new data
 					if (coeff != 0)
 					{
-						// Generate data
-						bool bit = bernuolli(std::random_device());
+						// Generate data if previous coefficient was not one
+						if (!reinsert)
+						{
+							bit = bernuolli(std::random_device());
+							data.push_back(bit);
+						}
 
-						// Check current coeff
+						// Get least significant bit
 						bool coeff_lsb = coeff & (int16_t)1;
 						int16_t t_coeff = coeff;
 
+						// Decrease in one the absolute value of the coefficient
+						// if the LSB does not match
 						if (bit != coeff_lsb)
 							t_coeff = coeff > 0 ? (coeff - 1) : (coeff + 1);
 
+						// If the tampered coefficient was zero, the data cannot be recovered.
+						// It must be inserted in the next coefficient.
+						// Set to false otherwise
+						if (t_coeff == 0)
+							reinsert = true;
+						else
+							reinsert = false;
+
 						// Set new coeff
 						block.at<float>(u, v) = t_coeff;
-						data.push_back(bit);
 					}
 				}
 		}
-
 	return f3_image;
 }
 
@@ -286,11 +303,12 @@ std::map<int32_t, uint32_t> getCoeffMap(const cv::Mat & dctImage, bool everyCoef
 			for (int u = 0; u < 8; u++)
 				for (int v = 0; v < 8; v++)
 				{
+					// Skip other coefficients than 2, 2 if everyCoeff is false
 					if (!everyCoeff)
 						if (!(u == 2 && v == 2))
 							continue;
 
-					// Get (2, 2) coefficient
+					// Get (u, v) coefficient
 					int16_t coeff = std::round(block.at<float>(u, v));
 
 					// Increase count values
@@ -304,12 +322,10 @@ std::map<int32_t, uint32_t> getCoeffMap(const cv::Mat & dctImage, bool everyCoef
 	return coeff_count;
 }
 
-std::vector<bool> getDataFromTamperedImage(cv::Mat tImage)
+std::vector<bool> getDataFromTamperedImage(cv::Mat tImage, bool everyCoeff, bool alg)
 {
 	std::vector<bool> hidden_data;
-
-	cv::Mat dctImage = getDctImage(tImage);
-	//dctImage = tImage;
+	cv::Mat dctImage = tImage.clone();
 
 	for (int i = 0; i < dctImage.size().width; i += 8)
 		for (int j = 0; j < dctImage.size().height; j += 8)
@@ -319,17 +335,33 @@ std::vector<bool> getDataFromTamperedImage(cv::Mat tImage)
 			for (int u = 0; u < 8; u++)
 				for (int v = 0; v < 8; v++)
 				{
-					if (!(u == 2 && v == 2))
-						continue;
+					// Skip other coefficients than 2, 2 if everyCoeff is false
+					if(!everyCoeff)
+						if (!(u == 2 && v == 2))
+							continue;
 
-					// Get (2, 2) coefficient
+					// Get DCT coefficient
 					int16_t coeff = std::round(block.at<float>(u, v));
 
-					if (coeff != 0 && coeff != 1)
+					// JSTEG
+					if (!alg)
 					{
-						// Get data
-						bool bit = coeff & 1;
-						hidden_data.push_back(bit);
+						if (coeff != 0 && coeff != 1)
+						{
+							// Get data
+							bool bit = coeff & 1;
+							hidden_data.push_back(bit);
+						}
+					}
+					// F3
+					else
+					{
+						if (coeff != 0)
+						{
+							// Get data
+							bool bit = coeff & 1;
+							hidden_data.push_back(bit);
+						}
 					}
 				}
 		}

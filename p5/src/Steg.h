@@ -26,7 +26,7 @@ cv::Mat getF3Image(cv::Mat dctImage, std::vector<bool>& data, bool everyCoeff = 
 
 std::map<int32_t, uint32_t> getCoeffMap(const cv::Mat& dctImage, bool everyCoeff = false);
 
-std::vector<bool> getDataFromTamperedImage(cv::Mat tImage);
+std::vector<bool> getDataFromTamperedImage(cv::Mat tImage, bool everyCoeff = false, bool alg = false);
 
 void writeToOutputFile(std::fstream& file, int32_t data);
 

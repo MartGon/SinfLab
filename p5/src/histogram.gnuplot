@@ -9,6 +9,6 @@ set boxwidth 0.75 relative
 
 set xrange [-10:10]
 
-plot 'histogram_tam.dat' title 'f3Lena.tif' smooth freq w boxes
+plot 'histogram.dat' title 'Lena.tif' smooth freq w boxes
 
 pause -1
