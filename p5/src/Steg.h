@@ -24,10 +24,14 @@ cv::Mat getJSTEGImage(cv::Mat dctImage, std::vector<bool>& data, bool everyCoeff
 
 cv::Mat getF3Image(cv::Mat dctImage, std::vector<bool>& data, bool everyCoeff = false);
 
+cv::Mat circShift(const cv::Mat& image);
+
+cv::Mat leftUpCircShift(const cv::Mat& image);
+
 template <typename T>
-std::map<T, uint32_t> getCoeffMap(const cv::Mat & dctImage, bool everyCoeff = false)
+std::map<int32_t, uint32_t> getCoeffMap(const cv::Mat & dctImage, bool everyCoeff = false)
 {
-	std::map<T, uint32_t> coeff_count;
+	std::map<int32_t, uint32_t> coeff_count;
 
 	for (int i = 0; i < dctImage.size().width; i += 8)
 		for (int j = 0; j < dctImage.size().height; j += 8)
@@ -42,13 +46,13 @@ std::map<T, uint32_t> getCoeffMap(const cv::Mat & dctImage, bool everyCoeff = fa
 							continue;
 
 					// Get (2, 2) coefficient
-					T coeff = block.at<T>(u, v);
+					int32_t coeff = std::round(block.at<T>(u, v));
 
 					// Increase count values
 					if (coeff_count.find(coeff) != coeff_count.end())
 						coeff_count.at(coeff) = coeff_count.at(coeff) + 1;
 					else
-						coeff_count.insert(std::pair<T, uint32_t>(coeff, 1));
+						coeff_count.insert(std::pair<int32_t, uint32_t>(coeff, 1));
 				}
 		}
 

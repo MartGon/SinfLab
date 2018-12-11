@@ -20,10 +20,13 @@ int main(int argc, char** argv)
 	// Take a 8x8 block, dct, round to nearest integer, and get the value of the (2,2)
 
 	// Count values
-	std::map<float, uint32_t> coeff_count = std::map<float, uint32_t>();
+	std::map<int32_t, uint32_t> coeff_count;
+
+	// Circ Shift operation
+	cv::Mat shiftedImage = leftUpCircShift(image);
 
 	// Get dct Image
-	cv::Mat dctImage = getDctImage(image);   
+	cv::Mat dctImage = getDctImage(shiftedImage);
 
 	// Write to file for gnuplot
 		// Open output file
@@ -36,7 +39,15 @@ int main(int argc, char** argv)
 	out_file.close();
 
 	// Save image
+	std::vector<int> flags;
+	flags.push_back(cv::IMWRITE_JPEG_QUALITY);
+	flags.push_back(70);
+	cv::imwrite("shifted.jpeg", shiftedImage, flags);
 
+	cv::namedWindow("Display window", cv::WINDOW_AUTOSIZE);
+	cv::imshow("Display window", shiftedImage);
+
+	cv::waitKey(0);
 
 	return 10;
 }
@@ -247,6 +258,59 @@ cv::Mat getF3Image(cv::Mat dctImage, std::vector<bool>& data, bool everyCoeff)
 		}
 
 	return f3_image;
+}
+
+cv::Mat circShift(const cv::Mat& image)
+{
+	cv::Mat cImage = image.clone();
+
+	for (int i = 0; i < cImage.size().width; i++)
+		for (int j = 0; j < cImage.size().height; j++)
+		{
+			int8_t pixel = image.at<int8_t>(i, j);
+			int indexW = i + 1;
+			int indexH = j + 1;
+			
+			if (indexW == cImage.size().width)
+				indexW = 0;
+			if (indexH == cImage.size().height)
+				indexH = 0;
+
+			cImage.at<int8_t>(indexW, indexH) = pixel;
+		}
+
+	return cImage;
+}
+
+cv::Mat leftUpCircShift(const cv::Mat& image)
+{
+	cv::Mat cImage = image.clone();
+
+	for (int i = 0; i < cImage.size().width; i++)
+		for (int j = 0; j < cImage.size().height; j++)
+		{
+			int8_t pixel = image.at<int8_t>(i, j);
+			int indexW = i - 1;
+			int indexH = j - 1;
+
+			if (indexW == -1)
+				indexW = cImage.size().width - 1;
+			if (indexH == -1)
+				indexH = cImage.size().height - 1;
+
+			cImage.at<int8_t>(indexW, indexH) = pixel;
+		}
+
+	return cImage;
+}
+
+void saveImage(cv::Mat image, int qualityFactor, std::string path)
+{
+	std::vector<int> flags;
+	flags.push_back(cv::IMWRITE_JPEG_QUALITY);
+	flags.push_back(qualityFactor);
+
+	cv::imwrite(path.c_str(), image, flags);
 }
 
 std::vector<bool> getDataFromTamperedImage(cv::Mat tImage)
