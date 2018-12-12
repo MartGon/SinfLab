@@ -24,6 +24,8 @@ cv::Mat getJSTEGImage(cv::Mat dctImage, std::vector<bool>& data, bool everyCoeff
 
 cv::Mat getF3Image(cv::Mat dctImage, std::vector<bool>& data, bool everyCoeff = false);
 
+cv::Mat getDiffMatrix(cv::Mat mat1, cv::Mat mat2);
+
 std::map<int32_t, uint32_t> getCoeffMap(const cv::Mat& dctImage, bool everyCoeff = false);
 
 std::vector<bool> getDataFromTamperedImage(cv::Mat tImage, bool everyCoeff = false, bool alg = false);

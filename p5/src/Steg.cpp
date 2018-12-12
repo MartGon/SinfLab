@@ -28,40 +28,46 @@ int main(int argc, char** argv)
 	cv::Mat dctImage = getDctImage(image);   
 
 	// JSTEG the dct image
-	cv::Mat jstegImage = getF3Image(dctImage, generated_data, false);
+	cv::Mat jstegImage = getJSTEGImage(dctImage, generated_data, true);
 
 	// Get tampered image
 	cv::Mat idctImage = getIDctImage(jstegImage);
 
 	// Print generated data
-	printData(generated_data);
-	std::cout << std::endl;
+	//printData(generated_data);
+	//std::cout << std::endl;
 
 	// Recover data
-	std::vector<bool> hidden_data = getDataFromTamperedImage(jstegImage, false, true);
+	//std::vector<bool> hidden_data = getDataFromTamperedImage(jstegImage, true, false);
 
 	// Print hidden data
-	printData(hidden_data);
+	//printData(hidden_data);
+
+	// Get Diff Mat
+	cv::Mat matDiff = getDiffMatrix(image, idctImage);
 
 	// Write to file for gnuplot
 		// Open output file
-	new_coeff_count = getCoeffMap(jstegImage, false);
+	new_coeff_count = getCoeffMap(matDiff, true);
 	std::fstream out_file_tam("histogram_tam.dat", std::ios::out);
 	writeHistogramFile(out_file_tam, new_coeff_count);
 	out_file_tam.close();
 
 	// Write to file for gnuplot
 		// Open output file
-	coeff_count = getCoeffMap(dctImage, false);
-	std::fstream out_file("histogram.dat", std::ios::out);
-	writeHistogramFile(out_file, coeff_count);
-	out_file.close();
+	//coeff_count = getCoeffMap(dctImage, true);
+	//std::fstream out_file("histogram.dat", std::ios::out);
+	//writeHistogramFile(out_file, coeff_count);
+	//out_file.close();
+
+	// Save image
+	cv::imwrite("stegoImageF3.png", idctImage);
 
 	// Show image
 	//cv::namedWindow("Display window", cv::WINDOW_AUTOSIZE);// Create a window for display.
-	//cv::imshow("Display window", idctImage);                   // Show our image inside it.
+	//cv::imshow("Display window", matDiff);                   // Show our image inside it.
 
-	//cv::waitKey(0);                        // Wait for a keystroke in the window
+	cv::waitKey(0);                        // Wait for a keystroke in the window
 
 	return 10;
 }
@@ -291,6 +297,32 @@ cv::Mat getF3Image(cv::Mat dctImage, std::vector<bool>& data, bool everyCoeff)
 	return f3_image;
 }
 
+cv::Mat getDiffMatrix(cv::Mat mat1, cv::Mat mat2)
+{
+	cv::Mat diffMat = mat1.clone();
+	bool sameWidth = mat1.size().width == mat2.size().width;
+	bool sameHeight = mat1.size().height == mat1.size().height;
+	
+	if (!(sameHeight && sameWidth))
+		return diffMat;
+
+	for (int i = 0; i < diffMat.size().width; i ++)
+		for (int j = 0; j < diffMat.size().height; j++)
+		{
+			uint8_t n1 = mat1.at<uint8_t>(i, j);
+			uint8_t n2 = mat2.at<uint8_t>(i, j);
+			uint8_t diff = std::abs(mat1.at<uint8_t>(i, j) - mat2.at<uint8_t>(i, j));
+			// Multiply per 63, diff usually is less than 4
+
+			if (diff > 3  || diff < 0)
+				std::cout << "Bigger than " << std::to_string(diff) << std::endl;
+
+			diffMat.at<int8_t>(i, j) = diff /* 63*/;
+		}
+
+	return diffMat;
+}
+
 std::map<int32_t, uint32_t> getCoeffMap(const cv::Mat & dctImage, bool everyCoeff)
 {
 	std::map<int32_t, uint32_t> coeff_count;
@@ -303,13 +335,17 @@ std::map<int32_t, uint32_t> getCoeffMap(const cv::Mat & dctImage, bool everyCoef
 			for (int u = 0; u < 8; u++)
 				for (int v = 0; v < 8; v++)
 				{
+					// Never get the first coefficient
+					if (u == 0 && v == 0)
+						continue;
+
 					// Skip other coefficients than 2, 2 if everyCoeff is false
 					if (!everyCoeff)
 						if (!(u == 2 && v == 2))
 							continue;
 
 					// Get (u, v) coefficient
-					int16_t coeff = std::round(block.at<float>(u, v));
+					int16_t coeff = std::round(block.at<uint8_t>(u, v));
 
 					// Increase count values
 					if (coeff_count.find(coeff) != coeff_count.end())
