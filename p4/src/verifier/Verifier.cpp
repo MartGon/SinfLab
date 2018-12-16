@@ -1,0 +1,85 @@
+#include "Verifier.h"
+
+int main(int arg, char* argv[])
+{
+
+	if (arg != 3)
+	{
+		std::cout << "Expected a origin and  destination port argument  \n";
+		return -1;
+	}
+
+	// Init Networking libs
+
+	if (SDL_Init(0) == -1) 
+	{
+		std::cout << "SDL_Init: " << std::string(SDLNet_GetError()) << std::endl;
+		return -1;
+	}
+	if (SDLNet_Init() == -1) 
+	{
+		std::cout << "SDLNet_Init: " << std::string(SDLNet_GetError()) << std::endl;
+		return -1;
+	}
+
+	// Ports
+	uint16_t src_port = std::stoi(argv[1]);
+	Uint16 dest_port = std::stoi(argv[2]);
+
+	// Get local host ipaddress
+	IPaddress localhost;
+	int result = SDLNet_ResolveHost(&localhost, "locallhost", src_port);
+
+	if (!result)
+	{
+		std::cout << "SDLNet_ResolveHost " << std::string(SDLNet_GetError()) << std::endl;
+		return -1;
+	}
+
+	// Creating socket
+	UDPsocket udp_socket;
+
+	udp_socket = SDLNet_UDP_Open(src_port);
+
+	if (!udp_socket)
+	{
+		std::cout << "SDLNet_UDP_Open: " << std::string(SDLNet_GetError()) << std::endl;
+		return -1;
+	}
+
+	SDLNet_UDP_Bind(udp_socket, -1, &localhost);
+
+	Uint8 n_messages = 5;
+	while (n_messages > 0)
+	{
+		// Wait for user input
+		std::cout << "Press anything to send mesage\n";
+		std::cin.get();
+
+		// Create packet
+		UDPpacket *packet;
+		
+		packet = SDLNet_AllocPacket(sizeof(uint8_t));
+		packet->data = &n_messages;
+		packet->channel = -1;
+
+		if (!packet)
+		{
+			std::cout << "SDLNet_AllocPacket: " << std::string(SDLNet_GetError()) << std::endl;
+			return -1;
+		}
+
+		result = SDLNet_UDP_Send(udp_socket, packet->channel, packet);
+
+		if (!result)
+		{
+			std::cout << "SDLNet_UDP_Send: " << std::string(SDLNet_GetError()) << std::endl;
+			return -1;
+		}
+	}
+
+	// Close udp socket
+	SDLNet_UDP_Close(udp_socket);
+
+	return 0;
+}

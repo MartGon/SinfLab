@@ -22,9 +22,17 @@ find_package(OpenSSL REQUIRED)
 # Find OpenCV
 find_package(OpenCV REQUIRED)
 
+# Find SDL
+find_package(SDL2 REQUIRED)
+
+# Find SDL2_NET
+find_package(SDL2_net REQUIRED)
+
 # Directories to be included
 include_directories(${OPENSSL_INCLUDE_DIR})
 include_directories(${OpenCV_INCLUDE_DIRS})
+include_directories(${SDL2_NET_INCLUDE_DIRS})
+include_directories(${SDL2_INCLUDE_DIR})
 
 # Add src directory
 add_subdirectory(p1)

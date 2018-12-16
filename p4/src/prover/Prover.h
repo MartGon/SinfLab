@@ -13,6 +13,9 @@
 #include "openssl/sha.h"
 #include <openssl/err.h>
 
+// Network libs
+#include <SDL_net.h>
+
 // Forward Declaration
 class Node;
 struct BlockChainBlock;
@@ -48,6 +51,7 @@ struct BlockChainBlock
 
 // File Reading
 
+// This function automatically gets the size of the variable expected to be readed
 template <typename T>
 void readFromFile(std::fstream& file, T& var)
 {
@@ -124,5 +128,7 @@ std::string hexStrToCharStr(std::string str);
 int8_t charToInt8(char c);
 
 // Verifier
+
+void selfProgramVerify(uint32_t tree_size);
 
 bool verifyBlock(std::vector<Node*> chain, Node* block, Node* root);

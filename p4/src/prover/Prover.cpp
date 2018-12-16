@@ -113,35 +113,20 @@ int main(int arg, char* argv[])
 	}
 
 	// Verify proccess
-	uint32_t input_id  = 1; 
-	while (input_id != 0)
+
+	// Open UDP sockets
+	UDPsocket udp_socket;
+
+	udp_socket = SDLNet_UDP_Open(3000);
+
+	if (!udp_socket)
 	{
-		// Ask for user input
-		std::cout << "Enter a block number id to check if it belongs to the tree\n";
-		std::cin >> input_id;
-
-		// Search given block
-		input_id = tradLabelToStandard(input_id, tree_size);
-		Node* seeked_block = tree.at(input_id);
-
-		// Check if it is a block
-		if (!seeked_block->isBlock())
-			continue;
-
-		// Get verify chain
-		std::vector<Node*> chain = seeked_block->getVerifyChain(tree);
-
-		// Verify chain
-		Node* root = tree.at(1);
-		bool belong = verifyBlock(chain, seeked_block, root);
-
-		// Inform with output
-
-		if (belong)
-			std::cout << "The block was verfied correctly\n\n";
-		else
-			std::cout << "The block was not verified correctly\n\n";
+		std::cout << "Error while opening udp socket at port 3000\n";
+		return -1;
 	}
+
+
+
 	// Close file
 	myfile.close();
 
@@ -445,6 +430,39 @@ int8_t charToInt8(char c)
 }
 
 // Verifier
+
+void selfProgramVerify(uint32_t tree_size)
+{
+	uint32_t input_id  = 1;
+	while (input_id != 0)
+	{
+		// Ask for user input
+		std::cout << "Enter a block number id to check if it belongs to the tree\n";
+		std::cin >> input_id;
+
+		// Search given block
+		input_id = tradLabelToStandard(input_id, tree_size);
+		Node* seeked_block = tree.at(input_id);
+
+		// Check if it is a block
+		if (!seeked_block->isBlock())
+			continue;
+
+		// Get verify chain
+		std::vector<Node*> chain = seeked_block->getVerifyChain(tree);
+
+		// Verify chain
+		Node* root = tree.at(1);
+		bool belong = verifyBlock(chain, seeked_block, root);
+
+		// Inform with output
+
+		if (belong)
+			std::cout << "The block was verfied correctly\n\n";
+		else
+			std::cout << "The block was not verified correctly\n\n";
+	}
+}
 
 bool verifyBlock(std::vector<Node*> chain, Node * block, Node * root)
 {
