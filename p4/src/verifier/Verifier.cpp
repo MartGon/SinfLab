@@ -3,9 +3,9 @@
 int main(int arg, char* argv[])
 {
 
-	if (arg != 3)
+	if (arg != 4)
 	{
-		std::cout << "Expected a origin and  destination port argument  \n";
+		std::cout << "Expected a origi, destination port and an id argument  \n";
 		return -1;
 	}
 
@@ -25,6 +25,9 @@ int main(int arg, char* argv[])
 	uint16_t src_port = std::stoi(argv[1]);
 	Uint16 dest_port = std::stoi(argv[2]);
 
+	// Data to be sent
+	int8_t data = std::stoi(argv[3]);
+
 	// Get remote host ipaddress
 	IPaddress localhost;
 	int result = SDLNet_ResolveHost(&localhost, "localhost", dest_port);
@@ -35,7 +38,7 @@ int main(int arg, char* argv[])
 		return -1;
 	}
 
-	// Creating sending socket
+	// Creating socket
 	UDPsocket udp_socket;
 	udp_socket = SDLNet_UDP_Open(src_port);
 
@@ -62,43 +65,33 @@ int main(int arg, char* argv[])
 		std::cout << "SDLNet_AllocPacket: " << std::string(SDLNet_GetError()) << std::endl;
 		return -1;
 	}
-
-	Uint8 n_messages = dest_port;
-	while (n_messages > 0)
-	{
-		// Wait for user input
-		std::cout << "Press anything to send mesage\n";
-		std::cin.get();
 		
-		// Fill packet data
-		*packet->data = n_messages;
-		packet->len = sizeof(Uint8);
+	// Fill packet data
+	*packet->data = data;
+	packet->len = sizeof(Uint8);
 
-		// Send packet
-		result = SDLNet_UDP_Send(udp_socket, channel, packet);
+	// Send packet
+	result = SDLNet_UDP_Send(udp_socket, channel, packet);
 
-		if (!result)
-		{
-			std::cout << "SDLNet_UDP_Send: " << std::string(SDLNet_GetError()) << std::endl;
-			return -1;
-		}
-
-		Uint8 recv_message = SDLNet_UDP_Recv(udp_socket, packet);
-
-		if (recv_message == -1)
-		{
-			std::cout << "SDLNet_UDP_Recv: " << std::string(SDLNet_GetError()) << std::endl;
-			return -1;
-		}
-		else if (!recv_message)
-		{
-			std::cout << "Could not recieve any packet\n";
-		}
-
-		std::cout << "Dat recv is " << std::to_string(*packet->data) << std::endl;
-
-		n_messages--;
+	if (!result)
+	{
+		std::cout << "SDLNet_UDP_Send: " << std::string(SDLNet_GetError()) << std::endl;
+		return -1;
 	}
+
+	Uint8 recv_message = SDLNet_UDP_Recv(udp_socket, packet);
+
+	if (recv_message == -1)
+	{
+		std::cout << "SDLNet_UDP_Recv: " << std::string(SDLNet_GetError()) << std::endl;
+		return -1;
+	}
+	else if (!recv_message)
+	{
+		std::cout << "Could not recieve any packet\n";
+	}
+
+	std::cout << "Dat recv is " << std::to_string(*packet->data) << std::endl;
 
 	// Close udp socket
 	SDLNet_UDP_Close(udp_socket);

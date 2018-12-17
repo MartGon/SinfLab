@@ -6,9 +6,9 @@ Tree tree;
 
 int main(int arg, char* argv[])
 {
-	if (arg != 2)
+	if (arg != 3)
 	{
-		std::cout << "Expected a just a filename with a blockchain dataset\n";
+		std::cout << "Expected a filename with a blockchain dataset and a listening UDP port\n";
 		return -1;
 	}
 
@@ -79,6 +79,7 @@ int main(int arg, char* argv[])
 	uint32_t diff = end_index - start_index;
 	uint32_t quotient = 0;
 
+	std::cout << "Tree creation progress 00%";
 	while (end_index != start_index)
 	{
 		for (uint32_t i = start_index; i < end_index; i += 2)
@@ -101,6 +102,8 @@ int main(int arg, char* argv[])
 
 			// Set parent node in tree
 			tree.at(parent_id) = node;
+
+			std::cout << "\rTree creation progress " << (int)((float)i / (float)tree_size * 100) << "%";
 		}
 
 		// Calculate new index
@@ -112,20 +115,36 @@ int main(int arg, char* argv[])
 		end_index = start_index + quotient;
 	}
 
+	std::cout << std::endl;
+
 	// Verify proccess
+
+	// Init libs
+	initNetworkingLibs();
+
+	// Get port from arguments
+	Uint16 port = std::stoi(argv[2]);
 
 	// Open UDP sockets
 	UDPsocket udp_socket;
 
-	udp_socket = SDLNet_UDP_Open(3000);
+	udp_socket = SDLNet_UDP_Open(port);
 
 	if (!udp_socket)
 	{
-		std::cout << "Error while opening udp socket at port 3000\n";
+		std::cout << "Error while opening udp socket at port " << port << "\n";
 		return -1;
 	}
 
+	// Listen to recieving packets
+	initProverServer(udp_socket);
 
+	// Close socket
+	SDLNet_UDP_Close(udp_socket);
+
+	// Shutdown  networking libs
+	SDLNet_Quit();
+	SDL_Quit();
 
 	// Close file
 	myfile.close();
@@ -478,5 +497,93 @@ bool verifyBlock(std::vector<Node*> chain, Node * block, Node * root)
 			hash = sumHash(hash, sibling->hash);
 	}
 
-	return !memcmp(hash, root->hash, SHA256_DIGEST_LENGTH);
+	return !std::memcmp(hash, root->hash, SHA256_DIGEST_LENGTH);
+}
+
+bool verifyById(int32_t id)
+{
+	id = tradLabelToStandard(id, tree.size());
+	Node* seeked_block = tree.at(id);
+
+	// Check if it is a block
+	if (!seeked_block->isBlock())
+		return false;
+
+	// Get verify chain
+	std::vector<Node*> chain = seeked_block->getVerifyChain(tree);
+
+	// Verify chain
+	Node* root = tree.at(1);
+	bool belong = verifyBlock(chain, seeked_block, root);
+
+	// Inform with output
+	if (belong)
+		std::cout << "The block" << id << " was verfied correctly\n\n";
+	else
+		std::cout << "The block" << id << " was not verified correctly\n\n";
+}
+
+// Networking
+
+int initNetworkingLibs()
+{
+	if (SDL_Init(0) == -1)
+	{
+		std::cout << "SDL_Init: " << std::string(SDLNet_GetError()) << std::endl;
+		return -1;
+	}
+	if (SDLNet_Init() == -1)
+	{
+		std::cout << "SDLNet_Init: " << std::string(SDLNet_GetError()) << std::endl;
+		return -1;
+	}
+
+	return 0;
+}
+
+int initProverServer(UDPsocket sock)
+{
+	// Anounce
+	std::cout << "Initializing network services\n";
+
+	// Allocate a packet
+	UDPpacket* packet = SDLNet_AllocPacket(sizeof(int32_t));
+
+	// Try to recieve packets
+	Uint8 status = 0;
+	
+	while (true)
+	{
+		status = SDLNet_UDP_Recv(sock, packet);
+
+		// Check for recieved packets
+		if (status)
+		{
+			// Get the id from the packet
+			int32_t id = 0;
+			std::memcpy(&id, packet->data, packet->len);
+
+			// Check exit block
+			if (id == -1)
+			{
+				std::cout << "Finishing packet recieved\n";
+				SDLNet_FreePacket(packet);
+				return 0;
+			}
+
+			// Verify given block
+			bool result = verifyById(id);
+		}
+		// Check for errors
+		if (status == -1)
+		{
+			std::cout << "SDLNet_UDP_Recv: " << std::string(SDLNet_GetError()) << std::endl;
+			return -1;
+		}
+
+		// Delay some time to prevent 100% CPU Usage
+		SDL_Delay(200);
+	}
+
+	return 0;
 }

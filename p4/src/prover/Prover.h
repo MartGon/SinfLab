@@ -14,6 +14,7 @@
 #include <openssl/err.h>
 
 // Network libs
+#include <SDL.h>
 #include <SDL_net.h>
 
 // Forward Declaration
@@ -132,3 +133,11 @@ int8_t charToInt8(char c);
 void selfProgramVerify(uint32_t tree_size);
 
 bool verifyBlock(std::vector<Node*> chain, Node* block, Node* root);
+
+bool verifyById(int32_t id);
+
+// Networking 
+
+int initNetworkingLibs();
+
+int initProverServer(UDPsocket sock);
