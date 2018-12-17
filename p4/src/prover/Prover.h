@@ -19,6 +19,7 @@
 
 // Forward Declaration
 class Node;
+struct NetworkBlock;
 struct BlockChainBlock;
 struct BlockChainHeader;
 
@@ -96,6 +97,9 @@ public:
 	std::pair<Node*, Node*> getChildren(Tree tree);
 	bool isBlock();
 
+	// Networking
+	NetworkBlock toNetworkBlock();
+
 private:
 	// Id measures
 	static int16_t last_id;
@@ -136,8 +140,21 @@ bool verifyBlock(std::vector<Node*> chain, Node* block, Node* root);
 
 bool verifyById(int32_t id);
 
+std::vector<Node*> getVerifyChainById(int32_t id);
+
 // Networking 
 
 int initNetworkingLibs();
 
 int initProverServer(UDPsocket sock);
+
+int sendResponse(UDPsocket sock, IPaddress dest);
+
+std::vector<NetworkBlock> nodeChainToNetworkChain(std::vector<Node*> chain);
+
+struct NetworkBlock 
+{
+public:
+	int32_t id;
+	unsigned char hash[32];
+};

@@ -378,6 +378,16 @@ bool Node::isBlock()
 	return block;
 }
 
+NetworkBlock Node::toNetworkBlock()
+{
+	NetworkBlock nBlock;
+
+	nBlock.id = this->id;
+	std::memcpy(nBlock.hash, hash, 32);
+
+	return nBlock;
+}
+
 // Private
 
 int32_t Node::get_id()
@@ -523,6 +533,22 @@ bool verifyById(int32_t id)
 		std::cout << "The block" << id << " was not verified correctly\n\n";
 }
 
+std::vector<Node*> getVerifyChainById(int32_t id)
+{
+	id = tradLabelToStandard(id, tree.size());
+	Node* seeked_block = tree.at(id);
+	std::vector<Node*> chain;
+
+	// Check if it is a block
+	if (!seeked_block->isBlock())
+		return chain;
+
+	// Get verify chain
+	chain = seeked_block->getVerifyChain(tree);
+
+	return chain;
+}
+
 // Networking
 
 int initNetworkingLibs()
@@ -551,7 +577,6 @@ int initProverServer(UDPsocket sock)
 
 	// Try to recieve packets
 	Uint8 status = 0;
-	
 	while (true)
 	{
 		status = SDLNet_UDP_Recv(sock, packet);
@@ -571,8 +596,17 @@ int initProverServer(UDPsocket sock)
 				return 0;
 			}
 
-			// Verify given block
-			bool result = verifyById(id);
+			// Get block chain
+			std::vector<Node*> chain = getVerifyChainById(id);
+
+			if (chain.empty())
+			{
+				std::cout << "Recieved invalid id/n";
+				continue;
+			}
+
+			// Parse to binary data
+			std::vector<NetworkBlock> nChain = nodeChainToNetworkChain(chain);
 		}
 		// Check for errors
 		if (status == -1)
@@ -586,4 +620,33 @@ int initProverServer(UDPsocket sock)
 	}
 
 	return 0;
+}
+
+int sendResponse(UDPsocket sock, IPaddress dest)
+{
+	// Bind
+	Uint8 channel = SDLNet_UDP_Bind(sock, -1, &dest);
+
+	if (channel == -1)
+	{
+		std::cout << "SDLNet_UDP_Bind: " << std::string(SDLNet_GetError()) << std::endl;
+		return -1;
+	}
+
+	// Get
+
+	return 0;
+}
+
+std::vector<NetworkBlock> nodeChainToNetworkChain(std::vector<Node*> chain)
+{
+	std::vector<NetworkBlock> bChain;
+
+	for (auto const& node : chain)
+	{
+		NetworkBlock block = node->toNetworkBlock();
+		bChain.push_back(block);
+	}
+
+	return bChain;
 }
