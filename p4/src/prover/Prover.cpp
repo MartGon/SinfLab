@@ -541,6 +541,7 @@ std::vector<Node*> getVerifyChainById(int32_t id)
 {
 	id = tradLabelToStandard(id, tree.size());
 	Node* seeked_block = tree.at(id);
+
 	std::vector<Node*> chain;
 
 	// Check if it is a block
@@ -604,6 +605,11 @@ int initProverServer(UDPsocket sock)
 				std::cout << "Finishing packet recieved\n";
 				SDLNet_FreePacket(packet);
 				return 0;
+			}
+			else if (id >= tree.size() || id < -1)
+			{
+				std::cout << "Recivied invalid id\n";
+				continue;
 			}
 
 			// Get block chain
