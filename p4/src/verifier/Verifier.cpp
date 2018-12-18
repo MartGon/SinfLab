@@ -5,7 +5,7 @@ int main(int arg, char* argv[])
 
 	if (arg != 4)
 	{
-		std::cout << "Expected a origi, destination port and an id argument  \n";
+		std::cout << "Expected a origi, destination port and an block id argument  \n";
 		return -1;
 	}
 
@@ -79,11 +79,20 @@ int main(int arg, char* argv[])
 		return -1;
 	}
 
+	// Check for close serve packet
+	if (data == -1)
+	{
+		std::cout << "Close server packet sent\n";
+		return 0;
+	}
+
 	// Create space for recieving packets
 	SDLNet_FreePacket(packet);
 	packet = SDLNet_AllocPacket(sizeof(NetworkBlock));
 
+	// Recieving loot
 	std::vector<NetworkBlock> chain;
+	int8_t timeout = 5;
 	while (true)
 	{
 		Uint8 recv_message = SDLNet_UDP_Recv(udp_socket, packet);
@@ -97,6 +106,14 @@ int main(int arg, char* argv[])
 		{
 			std::cout << "Could not recieve any packet\n";
 			SDL_Delay(1000);
+			timeout--;
+
+			if (!timeout)
+			{
+				std::cout << "Connection timed out\n";
+				return -1;
+			}
+
 			continue;
 		}
 
@@ -108,12 +125,22 @@ int main(int arg, char* argv[])
 		std::cout << "Dat id recv is " << std::to_string(recv_block.id) << std::endl;
 		std::cout << "Dat hash recv is " << ucharToString(recv_block.hash, 32) << std::endl;
 
+		// Check for erros
+		if (recv_block.id == -1)
+		{
+			std::cout << "Sent block was not valid\n";
+			return -1;
+		}
+
 		// Add to the list
 		chain.push_back(recv_block);
 
 		// Break when we get root block
 		if (recv_block.id == 1)
 			break;
+
+		// Reset timeout
+		timeout = 5;
 	}
 
 	// Verify data
@@ -206,6 +233,7 @@ bool verifyBlock(std::vector<NetworkBlock> chain, NetworkBlock block, NetworkBlo
 	unsigned char* hash = block.hash;
 
 	NetworkBlock sibling;
+	// Avoid self and root
 	for (int i = 1; i < chain.size() - 1; i++)
 	{
 		sibling = chain.at(i);

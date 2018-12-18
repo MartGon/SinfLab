@@ -150,6 +150,8 @@ int initProverServer(UDPsocket sock);
 
 int sendBlock(UDPsocket sock, IPaddress dest, Uint8 channel, NetworkBlock block);
 
+int sendErrorBlock(UDPsocket sock, IPaddress dest, Uint8 channel);
+
 struct NetworkBlock 
 {
 public:

@@ -599,6 +599,15 @@ int initProverServer(UDPsocket sock)
 			// Notify
 			std::cout << "Recovering chain corresponding to packet id " << id << std::endl;
 
+			// Bind socket
+			Uint8 channel = SDLNet_UDP_Bind(sock, -1, &dest);
+
+			if (channel == -1)
+			{
+				std::cout << "SDLNet_UDP_Bind: " << std::string(SDLNet_GetError()) << std::endl;
+				return -1;
+			}
+
 			// Check exit block
 			if (id == -1)
 			{
@@ -609,6 +618,7 @@ int initProverServer(UDPsocket sock)
 			else if (id >= tree.size() || id < -1)
 			{
 				std::cout << "Recivied invalid id\n";
+				sendErrorBlock(sock, dest, channel);
 				continue;
 			}
 
@@ -618,16 +628,8 @@ int initProverServer(UDPsocket sock)
 			if (chain.empty())
 			{
 				std::cout << "Recieved invalid id/n";
+				sendErrorBlock(sock, dest, channel);
 				continue;
-			}
-			
-			// Bind socket
-			Uint8 channel = SDLNet_UDP_Bind(sock, -1, &dest);
-
-			if (channel == -1)
-			{
-				std::cout << "SDLNet_UDP_Bind: " << std::string(SDLNet_GetError()) << std::endl;
-				return -1;
 			}
 
 			// Send self hash
@@ -683,4 +685,13 @@ int sendBlock(UDPsocket sock, IPaddress dest, Uint8 channel, NetworkBlock block)
 	SDLNet_FreePacket(pack);
 
 	return 0;
+}
+
+int sendErrorBlock(UDPsocket sock, IPaddress dest, Uint8 channel)
+{
+	// Craft error block
+	NetworkBlock error_block;
+	error_block.id = -1;
+
+	return sendBlock(sock, dest, channel, error_block);
 }
