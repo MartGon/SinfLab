@@ -26,7 +26,7 @@ int main(int arg, char* argv[])
 	Uint16 dest_port = std::stoi(argv[2]);
 
 	// Data to be sent
-	int8_t data = std::stoi(argv[3]);
+	int32_t data = std::stoi(argv[3]);
 
 	// Get remote host ipaddress
 	IPaddress localhost;
@@ -58,7 +58,7 @@ int main(int arg, char* argv[])
 
 	// Create packet
 	UDPpacket *packet;
-	packet = SDLNet_AllocPacket(sizeof(Uint8));
+	packet = SDLNet_AllocPacket(sizeof(int32_t));
 
 	if (!packet)
 	{
@@ -67,8 +67,8 @@ int main(int arg, char* argv[])
 	}
 		
 	// Fill packet data
-	*packet->data = data;
-	packet->len = sizeof(Uint8);
+	std::memcpy(packet->data, &data, sizeof(int32_t));
+	packet->len = sizeof(int32_t);
 
 	// Send packet
 	result = SDLNet_UDP_Send(udp_socket, channel, packet);
@@ -79,19 +79,50 @@ int main(int arg, char* argv[])
 		return -1;
 	}
 
-	Uint8 recv_message = SDLNet_UDP_Recv(udp_socket, packet);
+	// Create space for recieving packets
+	SDLNet_FreePacket(packet);
+	packet = SDLNet_AllocPacket(sizeof(NetworkBlock));
 
-	if (recv_message == -1)
+	std::vector<NetworkBlock> chain;
+	while (true)
 	{
-		std::cout << "SDLNet_UDP_Recv: " << std::string(SDLNet_GetError()) << std::endl;
-		return -1;
-	}
-	else if (!recv_message)
-	{
-		std::cout << "Could not recieve any packet\n";
+		Uint8 recv_message = SDLNet_UDP_Recv(udp_socket, packet);
+
+		if (recv_message == -1)
+		{
+			std::cout << "SDLNet_UDP_Recv: " << std::string(SDLNet_GetError()) << std::endl;
+			return -1;
+		}
+		else if (!recv_message)
+		{
+			std::cout << "Could not recieve any packet\n";
+			SDL_Delay(1000);
+			continue;
+		}
+
+		// Read block from packet 
+		NetworkBlock recv_block;
+
+		// Get data from packet
+		std::memcpy(&recv_block, packet->data, packet->len);
+		std::cout << "Dat id recv is " << std::to_string(recv_block.id) << std::endl;
+		std::cout << "Dat hash recv is " << ucharToString(recv_block.hash, 32) << std::endl;
+
+		// Add to the list
+		chain.push_back(recv_block);
+
+		// Break when we get root block
+		if (recv_block.id == 1)
+			break;
 	}
 
-	std::cout << "Dat recv is " << std::to_string(*packet->data) << std::endl;
+	// Verify data
+	bool integ = verifyBlock(chain, chain.front(), chain.back());
+
+	if (integ)
+		std::cout << "Block was verified correctly\n";
+	else
+		std::cout << "Block was not verified correctly\n";
 
 	// Close udp socket
 	SDLNet_UDP_Close(udp_socket);
@@ -106,4 +137,83 @@ int main(int arg, char* argv[])
 	SDL_Quit();
 
 	return 0;
+}
+
+std::string ucharToString(unsigned char * str, int32_t str_length)
+{
+	std::stringstream ss;
+	for (int i = 0; i < str_length; i++)
+	{
+		ss << std::hex << std::setw(2) << std::setfill('0') << (int)str[i];
+	}
+	return ss.str();
+}
+
+// OpenSSL implementations
+
+void sha256(unsigned char *input, int32_t input_length, unsigned char* output)
+{
+	// Declare hashing object
+	SHA256_CTX sha256;
+
+	char* error_msg = new char[32];
+	if (!SHA256_Init(&sha256))
+	{
+		std::cout << "Error while intitializing hashing object\n";
+		return;
+	}
+
+	if (!SHA256_Update(&sha256, input, input_length))
+	{
+		ERR_error_string(ERR_get_error(), error_msg);
+		std::cout << "Error during update: " << std::string(error_msg) << "\n";
+		return;
+	}
+
+	if (!SHA256_Final(output, &sha256))
+	{
+		std::cout << "Error finalizing\n";
+		return;
+	}
+
+	delete error_msg;
+
+	return;
+}
+
+unsigned char* sumHash(unsigned char* h1, unsigned char * h2)
+{
+	// Concat both inputs
+	uint32_t concat_hash_length = SHA256_DIGEST_LENGTH * 2;
+	unsigned char* concat_hash = new unsigned char[concat_hash_length];
+
+	memcpy_s(concat_hash, SHA256_DIGEST_LENGTH, h1, SHA256_DIGEST_LENGTH);
+	concat_hash += SHA256_DIGEST_LENGTH;
+	memcpy_s(concat_hash, SHA256_DIGEST_LENGTH, h2, SHA256_DIGEST_LENGTH);
+	concat_hash -= SHA256_DIGEST_LENGTH;
+
+	// Calculate hashes
+	unsigned char* hash = new unsigned char[SHA256_DIGEST_LENGTH];
+	sha256(concat_hash, concat_hash_length, hash);
+
+	return hash;
+}
+
+// Verify
+
+bool verifyBlock(std::vector<NetworkBlock> chain, NetworkBlock block, NetworkBlock root)
+{
+	unsigned char* hash = block.hash;
+
+	NetworkBlock sibling;
+	for (int i = 1; i < chain.size() - 1; i++)
+	{
+		sibling = chain.at(i);
+		if (sibling.id & 1)
+			hash = sumHash(sibling.hash, hash);
+		else
+			hash = sumHash(hash, sibling.hash);
+	}
+
+	return !std::memcmp(hash, root.hash, SHA256_DIGEST_LENGTH);
 }

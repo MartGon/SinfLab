@@ -148,9 +148,7 @@ int initNetworkingLibs();
 
 int initProverServer(UDPsocket sock);
 
-int sendResponse(UDPsocket sock, IPaddress dest);
-
-std::vector<NetworkBlock> nodeChainToNetworkChain(std::vector<Node*> chain);
+int sendBlock(UDPsocket sock, IPaddress dest, Uint8 channel, NetworkBlock block);
 
 struct NetworkBlock 
 {

@@ -155,6 +155,8 @@ int main(int arg, char* argv[])
 	return 0;
 }
 
+// File Reading
+
 BlockChainBlock* getNextBlock(std::fstream& blockchain_file, bool &eof)
 {
 	int32_t index = blockchain_file.tellg();
@@ -531,6 +533,8 @@ bool verifyById(int32_t id)
 		std::cout << "The block" << id << " was verfied correctly\n\n";
 	else
 		std::cout << "The block" << id << " was not verified correctly\n\n";
+
+	return true;
 }
 
 std::vector<Node*> getVerifyChainById(int32_t id)
@@ -588,6 +592,12 @@ int initProverServer(UDPsocket sock)
 			int32_t id = 0;
 			std::memcpy(&id, packet->data, packet->len);
 
+			// Get response destination from packet
+			IPaddress dest = packet->address;
+
+			// Notify
+			std::cout << "Recovering chain corresponding to packet id " << id << std::endl;
+
 			// Check exit block
 			if (id == -1)
 			{
@@ -604,9 +614,30 @@ int initProverServer(UDPsocket sock)
 				std::cout << "Recieved invalid id/n";
 				continue;
 			}
+			
+			// Bind socket
+			Uint8 channel = SDLNet_UDP_Bind(sock, -1, &dest);
 
-			// Parse to binary data
-			std::vector<NetworkBlock> nChain = nodeChainToNetworkChain(chain);
+			if (channel == -1)
+			{
+				std::cout << "SDLNet_UDP_Bind: " << std::string(SDLNet_GetError()) << std::endl;
+				return -1;
+			}
+
+			// Send self hash
+			sendBlock(sock, dest, channel, tree.at(tradLabelToStandard(id, tree.size()))->toNetworkBlock());
+
+			// Send chain
+			for (auto const& node : chain)
+			{
+				sendBlock(sock, dest, channel, node->toNetworkBlock());
+			}
+
+			// Send root
+			sendBlock(sock, dest, channel, tree.at(1)->toNetworkBlock());
+
+			// UnBind
+			SDLNet_UDP_Unbind(sock, channel);
 		}
 		// Check for errors
 		if (status == -1)
@@ -622,31 +653,28 @@ int initProverServer(UDPsocket sock)
 	return 0;
 }
 
-int sendResponse(UDPsocket sock, IPaddress dest)
+int sendBlock(UDPsocket sock, IPaddress dest, Uint8 channel, NetworkBlock block)
 {
-	// Bind
-	Uint8 channel = SDLNet_UDP_Bind(sock, -1, &dest);
+	// Allocate packet
+	size_t nb_size = sizeof(NetworkBlock);
+	UDPpacket* pack = SDLNet_AllocPacket(nb_size);
+	
+	// Set data to packet
+	std::memcpy(pack->data, &block, nb_size);
 
-	if (channel == -1)
+	// Set packet len
+	pack->len = nb_size;
+
+	// Send packet
+	Uint8 err = SDLNet_UDP_Send(sock, channel, pack);
+
+	if (!err)
 	{
-		std::cout << "SDLNet_UDP_Bind: " << std::string(SDLNet_GetError()) << std::endl;
+		std::cout << "SDLNet_UDP_Send: " << std::string(SDLNet_GetError()) << std::endl;
 		return -1;
 	}
 
-	// Get
+	SDLNet_FreePacket(pack);
 
 	return 0;
-}
-
-std::vector<NetworkBlock> nodeChainToNetworkChain(std::vector<Node*> chain)
-{
-	std::vector<NetworkBlock> bChain;
-
-	for (auto const& node : chain)
-	{
-		NetworkBlock block = node->toNetworkBlock();
-		bChain.push_back(block);
-	}
-
-	return bChain;
 }
