@@ -11,7 +11,14 @@
 #include <openssl/err.h>
 
 // Network libs
-#include <SDL_net.h>
+#ifdef _WIN32
+	// Network libs
+	#include <SDL.h>
+	#include <SDL_net.h>
+#else
+	#include <SDL2/SDL.h>
+	#include <SDL2/SDL_net.h>
+#endif
 
 struct NetworkBlock
 {
