@@ -214,9 +214,9 @@ unsigned char* sumHash(unsigned char* h1, unsigned char * h2)
 	uint32_t concat_hash_length = SHA256_DIGEST_LENGTH * 2;
 	unsigned char* concat_hash = new unsigned char[concat_hash_length];
 
-	memcpy_s(concat_hash, SHA256_DIGEST_LENGTH, h1, SHA256_DIGEST_LENGTH);
+	std::memcpy(concat_hash, h1, SHA256_DIGEST_LENGTH);
 	concat_hash += SHA256_DIGEST_LENGTH;
-	memcpy_s(concat_hash, SHA256_DIGEST_LENGTH, h2, SHA256_DIGEST_LENGTH);
+	std::memcpy(concat_hash, h2, SHA256_DIGEST_LENGTH);
 	concat_hash -= SHA256_DIGEST_LENGTH;
 
 	// Calculate hashes
