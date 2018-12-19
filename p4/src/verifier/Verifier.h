@@ -7,13 +7,11 @@
 #include <cstring>
 
 // OpenSSL libs
-
 #include "openssl/sha.h"
 #include <openssl/err.h>
 
 // Network libs
 #ifdef _WIN32
-	// Network libs
 	#include <SDL.h>
 	#include <SDL_net.h>
 #else

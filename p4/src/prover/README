@@ -1,0 +1,48 @@
+REQUIREMENTS
+
+In order to compile the program you'll need the follwing libraries:
+
+- OpenSSL: To implement the hash function
+- SDL2:	Dependency
+- SDL2_Net: Network sockets library abstraction layer. 
+
+Those libraries can be obtained by one of the following ways:
+
+LINUX Deabian/Ubuntu
+
+sudo apt install libssl-dev
+sudo apt install libsdl2-dev
+sudo apt install libsdl2-net-dev 
+
+MacOS
+
+brew install openssl
+brew install libsdl2-dev
+brew install libsdl2-net-dev 
+
+COMPILING
+
+You can compile the program by simply running
+
+g++ Prover.cpp -lSDL2 -lSDL2_net -lcrypto -o prover
+
+DESCRIPTION
+
+This program will create a Merkle tree using the data provided by a file containing a string of blocks from the blockchain, which will help to speed up the integrity checks that can be done
+to any of those blocks. Once the file is read and the Merkle tree is created, it will listen to verifying requests in the port that was chosen in the program execution.
+Once a valid verifying request is receivied, the server will respond with the chain of hashes which will be needed by the verifier in order to properly check the integrity of a given block.
+
+RUNNING
+
+In order to initiate the prover server, you'll need to enter the following on the command line (Assuming the file is on the same folder)
+
+./prover {blockhain.file} {UDP listening port} 
+
+where:
+
+- {blockhain.file}: is the path to the file containing the blocks of the blockchain.
+- {listening port}: is a number between [1-65535] corresponding to the UDP port where the server will listen for verifying requests.
+
+i.e.
+
+.\p4_prover.exe blk00000.dat 3000

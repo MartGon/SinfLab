@@ -13,8 +13,8 @@
 #include "openssl/sha.h"
 #include <openssl/err.h>
 
+// Network libs
 #ifdef _WIN32
-	// Network libs
 	#include <SDL.h>
 	#include <SDL_net.h>
 #else
@@ -37,7 +37,6 @@ using timestamp = unsigned char[4];
 using Key = unsigned char*;
 
 // Block Structure
-
 struct BlockChainHeader
 {
 	uint32_t version;
@@ -138,12 +137,6 @@ std::string hexStrToCharStr(std::string str);
 int8_t charToInt8(char c);
 
 // Verifier
-
-void selfProgramVerify(uint32_t tree_size);
-
-bool verifyBlock(std::vector<Node*> chain, Node* block, Node* root);
-
-bool verifyById(int32_t id);
 
 std::vector<Node*> getVerifyChainById(int32_t id);
 

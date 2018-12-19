@@ -125,9 +125,8 @@ int main(int arg, char* argv[])
 	// Get port from arguments
 	Uint16 port = std::stoi(argv[2]);
 
-	// Open UDP sockets
+	// Open UDP socket
 	UDPsocket udp_socket;
-
 	udp_socket = SDLNet_UDP_Open(port);
 
 	if (!udp_socket)
@@ -173,7 +172,7 @@ BlockChainBlock* getNextBlock(std::fstream& blockchain_file, bool &eof)
 	// Seek magic number otherwise
 	else if (!seekMagicNumber(blockchain_file))
 	{
-		std::cout << "Magic number could not be read\n";
+		std::cout << "Magic number could not be read: End of file reached\n";
 		eof = true;
 		return block;
 	}
@@ -313,6 +312,7 @@ std::vector<Node*> Node::getVerifyChain(Tree tree)
 }
 
 // Tree handling
+
 uint32_t calculateTreeSize(uint32_t devices)
 {
 	return (devices * 2) - 1;
@@ -461,81 +461,6 @@ int8_t charToInt8(char c)
 }
 
 // Verifier
-
-void selfProgramVerify(uint32_t tree_size)
-{
-	uint32_t input_id  = 1;
-	while (input_id != 0)
-	{
-		// Ask for user input
-		std::cout << "Enter a block number id to check if it belongs to the tree\n";
-		std::cin >> input_id;
-
-		// Search given block
-		input_id = tradLabelToStandard(input_id, tree_size);
-		Node* seeked_block = tree.at(input_id);
-
-		// Check if it is a block
-		if (!seeked_block->isBlock())
-			continue;
-
-		// Get verify chain
-		std::vector<Node*> chain = seeked_block->getVerifyChain(tree);
-
-		// Verify chain
-		Node* root = tree.at(1);
-		bool belong = verifyBlock(chain, seeked_block, root);
-
-		// Inform with output
-
-		if (belong)
-			std::cout << "The block was verfied correctly\n\n";
-		else
-			std::cout << "The block was not verified correctly\n\n";
-	}
-}
-
-bool verifyBlock(std::vector<Node*> chain, Node * block, Node * root)
-{
-	unsigned char* hash = block->hash;
-
-	Node* sibling = nullptr;
-	for (int i = 0; i < chain.size(); i++)
-	{
-		sibling = chain.at(i);
-		if (sibling->id & 1)
-			hash = sumHash(sibling->hash, hash);
-		else
-			hash = sumHash(hash, sibling->hash);
-	}
-
-	return !std::memcmp(hash, root->hash, SHA256_DIGEST_LENGTH);
-}
-
-bool verifyById(int32_t id)
-{
-	id = tradLabelToStandard(id, tree.size());
-	Node* seeked_block = tree.at(id);
-
-	// Check if it is a block
-	if (!seeked_block->isBlock())
-		return false;
-
-	// Get verify chain
-	std::vector<Node*> chain = seeked_block->getVerifyChain(tree);
-
-	// Verify chain
-	Node* root = tree.at(1);
-	bool belong = verifyBlock(chain, seeked_block, root);
-
-	// Inform with output
-	if (belong)
-		std::cout << "The block" << id << " was verfied correctly\n\n";
-	else
-		std::cout << "The block" << id << " was not verified correctly\n\n";
-
-	return true;
-}
 
 std::vector<Node*> getVerifyChainById(int32_t id)
 {

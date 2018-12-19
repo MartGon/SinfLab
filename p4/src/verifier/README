@@ -1,0 +1,59 @@
+REQUIREMENTS
+
+In order to compile the program you'll need the follwing libraries:
+
+- OpenSSL: To implement the hash function
+- SDL2:	Dependency
+- SDL2_Net: Network sockets library abstraction layer. 
+
+Those libraries can be obtained by one of the following ways:
+
+LINUX Deabian/Ubuntu
+
+sudo apt install libssl-dev
+sudo apt install libsdl2-dev
+sudo apt install libsdl2-net-dev 
+
+MacOS
+
+brew install openssl
+brew install libsdl2-dev
+brew install libsdl2-net-dev 
+
+COMPILING
+
+You can compile the program by simply running
+
+g++ Verifier.cpp -lSDL2 -lSDL2_net -lcrypto -o verifier
+
+DESCRIPTION
+
+This program will run an integrity for a given block which corresponds to one of the leaves of a Merkle tree. It will send a verifying request to a Prover program running the Merkle tree and 
+once the response is received the integrity check will start. When the sum of two hashes, each one of them corresponding to one node in the Merkle tree, is going to be calculated, the follwing scheme is followed:
+
+hash = sumHash(sibling.hash, hash) if sibling.id is odd
+
+hash = sumHash(hash, sibling.hash) otherwise
+
+Where:
+
+- sibling.hash: is one the hashes received from the server's response
+- hash: is the hash which is being calculated in each iteration.
+
+After this process, the root hash and the calculated hash should be the same in order to confirm the block's integrity, otherwise the block has been tampered.
+
+RUNNING
+
+In order to initiate the verifier, you'll need to enter the following on the command line (Assuming the file is on the same folder)
+
+./verifier {UDP listening port} {prover UDP listening port} {block id} 
+
+where:
+
+- {UDP listening port}: is a number between [1-65535] corresponding to the port where the verifier will listen for the prover server's response.
+- {prover UDP listening port}: is a number between [1-65535] corresponding to the port which the verifier will use as destination port when sending the request to the prover server.
+- {blokc id}: is the id of the block which we want to verify its integrity
+
+i.e.
+
+.\verifier 3001 3000 98000
