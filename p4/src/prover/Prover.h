@@ -106,7 +106,7 @@ public:
 
 private:
 	// Id measures
-	static int16_t last_id;
+	static int32_t last_id;
 	int32_t get_id();
 };
 

@@ -267,7 +267,7 @@ unsigned char* sumHash(unsigned char* h1, unsigned char * h2)
 }
 
 // Classes
-int16_t Node::last_id = 1;
+int32_t Node::last_id = 1;
 
 // Constructors
 Node::Node()
@@ -464,8 +464,8 @@ int8_t charToInt8(char c)
 
 std::vector<Node*> getVerifyChainById(int32_t id)
 {
-	id = tradLabelToStandard(id, tree.size());
-	Node* seeked_block = tree.at(id);
+	int standard_id = tradLabelToStandard(id, tree.size());
+	Node* seeked_block = tree.at(standard_id);
 
 	std::vector<Node*> chain;
 
@@ -544,6 +544,8 @@ int initProverServer(UDPsocket sock)
 			{
 				std::cout << "Recivied invalid id\n";
 				sendErrorBlock(sock, dest, channel);
+				// UnBind
+				SDLNet_UDP_Unbind(sock, channel);
 				continue;
 			}
 
@@ -554,6 +556,8 @@ int initProverServer(UDPsocket sock)
 			{
 				std::cout << "Recieved invalid id/n";
 				sendErrorBlock(sock, dest, channel);
+				// UnBind
+				SDLNet_UDP_Unbind(sock, channel);
 				continue;
 			}
 

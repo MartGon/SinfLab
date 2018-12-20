@@ -45,4 +45,4 @@ where:
 
 i.e.
 
-.\p4_prover.exe blk00000.dat 3000
+.\prover blk00000.dat 3000
